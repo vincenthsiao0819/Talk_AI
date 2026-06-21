@@ -56,7 +56,7 @@ def send_to_mac(text):
     try:
         s = socket.socket()
         s.settimeout(3)
-        s.connect(("192.168.50.211", 5005))
+        s.connect(("192.168.64.6", 5005))
         s.send(text.encode('utf-8'))
         s.close()
         log("Sent to Mac:", text)
