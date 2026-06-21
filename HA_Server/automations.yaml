@@ -1,0 +1,72 @@
+- id: '1718873000001'
+  alias: 門鎖歡迎廣播
+  description: ''
+  trigger:
+    - platform: state
+      entity_id:
+        - sensor.sm_x936b_vincent_pad_last_notification
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state is not none and '用戶：' in trigger.to_state.state }}"
+  action:
+    - service: rest_command.magicmirror_welcome
+      data:
+        user: >-
+          {% set text = trigger.to_state.state %}
+          {% if 'Vincent' in text %}Vincent
+          {% elif 'Anna' in text %}Anna
+          {% elif 'Sunny' in text %}Sunny
+          {% elif 'Ray' in text %}Ray
+          {% elif '用戶：' in text %}{{ text.split('用戶：')[1].split(' ')[0] | trim }}
+          {% else %}家人{% endif %}
+  mode: single
+
+- id: '1718873000002'
+  alias: "客廳廣播：全方位雷達與門鎖混合歡迎系統"
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: sensor.sm_x936b_vincent_pad_last_notification
+    - platform: state
+      entity_id: device_tracker.vincent_iphone
+      to: "home"
+    - platform: state
+      entity_id: device_tracker.anna_iphone
+      to: "home"
+    - platform: state
+      entity_id: device_tracker.sunny_iphone
+      to: "home"
+    - platform: state
+      entity_id: device_tracker.ray_iphone
+      to: "home"
+  condition: []
+  action:
+    - variables:
+        welcome_names: >-
+          {% set names = namespace(list=[]) %}
+          {% if states.sensor.sm_x936b_vincent_pad_last_notification.last_changed is defined and now() - states.sensor.sm_x936b_vincent_pad_last_notification.last_changed < timedelta(minutes=2) %}
+            {% set notif = states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') %}
+            {% if 'Vincent' in notif %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
+            {% if 'Anna' in notif %}{% set names.list = names.list + ['Anna'] %}{% endif %}
+            {% if 'Sunny' in notif %}{% set names.list = names.list + ['Sunny'] %}{% endif %}
+            {% if 'Ray' in notif %}{% set names.list = names.list + ['Ray'] %}{% endif %}
+          {% endif %}
+          {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=5) %}
+            {% if 'Vincent' not in names.list %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
+          {% endif %}
+          {% if is_state('device_tracker.anna_iphone', 'home') and now() - states.device_tracker.anna_iphone.last_changed < timedelta(minutes=5) %}
+            {% if 'Anna' not in names.list %}{% set names.list = names.list + ['Anna'] %}{% endif %}
+          {% endif %}
+          {% if is_state('device_tracker.sunny_iphone', 'home') and now() - states.device_tracker.sunny_iphone.last_changed < timedelta(minutes=5) %}
+            {% if 'Sunny' not in names.list %}{% set names.list = names.list + ['Sunny'] %}{% endif %}
+          {% endif %}
+          {% if is_state('device_tracker.ray_iphone', 'home') and now() - states.device_tracker.ray_iphone.last_changed < timedelta(minutes=5) %}
+            {% if 'Ray' not in names.list %}{% set names.list = names.list + ['Ray'] %}{% endif %}
+          {% endif %}
+          {{ names.list | join('、') }}
+    - condition: template
+      value_template: "{{ welcome_names | length > 0 }}"
+    - service: rest_command.welcome_api
+      data:
+        name: "{{ welcome_names }}"
+    - delay: "00:01:00"

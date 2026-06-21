@@ -34,9 +34,10 @@ const server = http.createServer((req, res) => {
             req.on('end', () => {
                 try {
                     const data = JSON.parse(body);
-                    text = data.name || data.text || "家人";
+                    let text = data.name || data.text || "家人";
+                    let userText = data.userText || null;
+                    handleSpeak(text, res, parsedUrl.pathname === '/welcome', userText);
                 } catch(e) {}
-                handleSpeak(text, res, parsedUrl.pathname === '/welcome');
             });
         }
     } else {
@@ -45,7 +46,7 @@ const server = http.createServer((req, res) => {
     }
 });
 
-async function handleSpeak(text, res, isWelcome) {
+async function handleSpeak(text, res, isWelcome, userText = null) {
     let safeText = text.replace(/['"`$]/g, "").replace(/\(.*?\)/g, "").trim();
     
     try {
@@ -72,7 +73,11 @@ async function handleSpeak(text, res, isWelcome) {
             const audioFile = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\current_welcome_" + timestamp + ".mp3";
             fs.writeFileSync(audioFile, Buffer.concat(chunks));
             console.log("Audio generated for:", safeText);
-            triggerPopup(isWelcome ? safeText : "", audioFile);
+            let displayText = isWelcome ? safeText : textToSpeak;
+            if (!isWelcome && userText) {
+                displayText = "👤 You: " + userText + "\n\n🦞 Lobster: " + textToSpeak;
+            }
+            triggerPopup(isWelcome, displayText, audioFile);
             res.writeHead(200);
             res.end(JSON.stringify({status: "success", text: textToSpeak}));
             
@@ -87,28 +92,26 @@ async function handleSpeak(text, res, isWelcome) {
         });
         audioStream.on('error', (err) => {
             console.error("TTS Stream Error:", err);
-            triggerPopup("", ""); 
             res.writeHead(500);
             res.end(JSON.stringify({status: "error", message: "TTS stream failed"}));
         });
     } catch(err) {
         console.error("Edge TTS setup error:", err);
-        triggerPopup("", ""); 
         res.writeHead(500);
         res.end(JSON.stringify({status: "error", message: err.toString()}));
     }
 }
 
-function triggerPopup(name, audioFile) {
+function triggerPopup(isWelcome, text, audioFile) {
     let cmd;
-    if (name) {
-        let b64Name = Buffer.from(name, 'utf8').toString('base64');
+    let b64Text = Buffer.from(text, 'utf8').toString('base64');
+    
+    if (isWelcome) {
         let scriptPath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\Welcome.ps1";
-        cmd = `powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${scriptPath}" -Base64Name "${b64Name}" -AudioFile "${audioFile}"`;
+        cmd = `powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${scriptPath}" -Base64Name "${b64Text}" -AudioFile "${audioFile}"`;
     } else {
-        // Just play audio without UI popup if it's not a welcome
-        let scriptPath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\Welcome.ps1";
-        cmd = `powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${scriptPath}" -AudioFile "${audioFile}" -HideUI`;
+        let scriptPath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\Welcome_Chat.ps1";
+        cmd = `powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${scriptPath}" -Base64Text "${b64Text}" -AudioFile "${audioFile}"`;
     }
     
     exec(cmd, (error) => {
