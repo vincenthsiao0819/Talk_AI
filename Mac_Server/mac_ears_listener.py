@@ -25,7 +25,6 @@ while True:
             subprocess.Popen([
                 "openclaw", "agent", 
                 "--session-key", "agent:main:telegram:direct:5916594299", 
-                "--model", "deepseek/deepseek-v4-flash",
                 "--message", f"[客廳語音] {data} (請將回覆濃縮在 30 字以內，以便加速語音播報)", 
                 "--deliver"
             ])
