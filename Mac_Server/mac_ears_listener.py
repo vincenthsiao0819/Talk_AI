@@ -16,8 +16,8 @@ while True:
             
             # 1. 雙向紀錄：發送 Telegram 訊息讓使用者知道 Lobster 聽到了什麼
             subprocess.Popen([
-                "openclaw", "message", 
-                "--target", "telegram:5916594299", 
+                "openclaw", "message", "send", 
+                "--channel telegram --target", "telegram:5916594299", 
                 "--message", f"🗣️ Lobster 聽到：{data}"
             ])
             
