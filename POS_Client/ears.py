@@ -133,7 +133,30 @@ def recognize_with_whisper(audio_data):
             return ""
     except Exception as e:
         log("Whisper API Error:", str(e))
-        return ""
+def wait_for_mac_tunnel():
+    log("Waiting for Mac SSH tunnel to connect on port 5005...")
+    while True:
+        try:
+            s = socket.socket()
+            s.settimeout(2)
+            s.connect(("127.0.0.1", 5005))
+            s.close()
+            log("Mac SSH tunnel connected successfully!")
+            break
+        except Exception:
+            time.sleep(3)
+            
+    # Notify ready status via Voice & UI
+    try:
+        req = urllib.request.Request("http://127.0.0.1:8081/speak")
+        req.add_header('Content-Type', 'application/json; charset=utf-8')
+        # "系統連線成功，隨時待命"
+        ready_text = bytes([231, 179, 187, 231, 181, 177, 233, 128, 163, 231, 183, 154, 230, 136, 144, 229, 138, 159, 239, 188, 140, 233, 150, 168, 230, 153, 130, 229, 190, 133, 229, 145, 189]).decode("utf-8")
+        urllib.request.urlopen(req, data=json.dumps({"text": ready_text}).encode('utf-8'), timeout=5)
+    except Exception as e:
+        log("Failed to broadcast ready status:", e)
+
+wait_for_mac_tunnel()
 
 log("Ears are listening for 'Hey Lobster'...")
 while True:
