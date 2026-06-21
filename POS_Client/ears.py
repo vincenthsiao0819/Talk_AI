@@ -37,10 +37,10 @@ except Exception as e:
     sys.exit(1)
 
 recognizer = sr.Recognizer()
-recognizer.dynamic_energy_threshold = False
-recognizer.energy_threshold = 400
+recognizer.dynamic_energy_threshold = True
+recognizer.energy_threshold = 250
 
-OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE-5y3Vn3T6S_wQ6n5W74G0N08N1l-50aX2C-Y_tB_B7h3L_l2Xk3kPqRTeMA"
+OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE"
 
 def trigger_tts(text):
     try:
