@@ -16,7 +16,14 @@
     - platform: state
       entity_id: device_tracker.ray_iphone
       to: "home"
-  condition: []
+  condition:
+    - condition: template
+      value_template: >-
+        {% if trigger.entity_id == 'sensor.sm_x936b_vincent_pad_last_notification' %}
+          {{ trigger.to_state is not none and '用戶：' in trigger.to_state.state }}
+        {% else %}
+          true
+        {% endif %}
   action:
     - delay: "00:00:05"
     - variables:
