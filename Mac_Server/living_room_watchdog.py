@@ -37,6 +37,7 @@ def check_api():
 def recover_tunnel():
     log("Recovering SSH Tunnel...")
     subprocess.run(["pkill", "-f", "keep_ears_tunnel.sh"], capture_output=True)
+    subprocess.run(["pkill", "-f", "ssh.*192.168.50.204"], capture_output=True)
     subprocess.Popen(["bash", "/Users/vincenthsiao/.openclaw/workspace/Talk_AI/Mac_Server/keep_ears_tunnel.sh"], 
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(3)
