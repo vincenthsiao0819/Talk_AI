@@ -166,13 +166,26 @@ def main():
     else:
         log("SSH Tunnel is OK.")
 
-    # Check 4: Mac Ears Integrity
+    # Check 4: Mac Ears Integrity and Process
     mac_ears_status = subprocess.run(["git", "status", "--porcelain", "Mac_Server/mac_ears_listener.py"], cwd="/Users/vincenthsiao/.openclaw/workspace/Talk_AI", capture_output=True, text=True)
-    if "M " in mac_ears_status.stdout or " M" in mac_ears_status.stdout:
+    is_modified = "M " in mac_ears_status.stdout or " M" in mac_ears_status.stdout
+    
+    is_running = False
+    try:
+        proc = subprocess.run(["pgrep", "-f", "mac_ears_listener.py"], capture_output=True, text=True)
+        if proc.stdout.strip():
+            is_running = True
+    except:
+        pass
+
+    if is_modified:
         alerts.append("⚠️ 偵測到 Mac_Server/mac_ears_listener.py 有未經授權的修改！正在還原回 GitHub 乾淨版本並重啟...")
         recover_mac_ears()
+    elif not is_running:
+        alerts.append("⚠️ 偵測到 Mac Ears Listener 未啟動，正在重新啟動...")
+        recover_mac_ears()
     else:
-        log("Mac Ears Listener integrity is OK.")
+        log("Mac Ears Listener is running and integrity is OK.")
 
     # Check 5: HA Automations Integrity
     ha_auto_status = subprocess.run(["git", "status", "--porcelain", "HA_Server/automations.yaml"], cwd="/Users/vincenthsiao/.openclaw/workspace/Talk_AI", capture_output=True, text=True)
