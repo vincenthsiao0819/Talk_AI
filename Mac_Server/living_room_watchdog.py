@@ -4,9 +4,12 @@ import urllib.request
 import time
 import base64
 import sys
+import os
 
 # Secrets (Do NOT push this script to public GitHub, keep it local on Mac)
 OPENAI_API_KEY = "sk-proj-7GstW6mU9qJ2Q5k4Kk3mZf0wX-tJqOq8rF6eH_R3M_l-w3zU4s2zR5eP6oV0qX1tM-yVzfwA" # Extracted from start_ears.bat
+
+MUTE_FLAG_PATH = "/Users/vincenthsiao/.openclaw/workspace/Talk_AI/Mac_Server/mute.flag"
 SSH_CMD = ["sshpass", "-p", "6611", "ssh", "-o", "StrictHostKeyChecking=no", "magic@192.168.50.204"]
 
 def log(msg):
@@ -150,14 +153,16 @@ def main():
     else:
         log("Welcome API is OK.")
 
-    # Check 2: Ears Process (Simplistic check via HTTP TTS endpoint might not cover Python, so we check Python process)
-    # Since Welcome API is up, we can check python via SSH
-    python_check = subprocess.run(SSH_CMD + ["tasklist | findstr python"], capture_output=True, text=True)
-    if "python.exe" not in python_check.stdout:
-        alerts.append("⚠️ Ears 語音程式 (Python) 崩潰，正在從 GitHub 基準還原並注入金鑰...")
-        recover_ears()
+    # Check 2: Ears Process
+    if os.path.exists(MUTE_FLAG_PATH):
+        log("維護模式 (mute.flag) 已開啟，跳過 Ears 語音程式檢查。")
     else:
-        log("Ears Python process is OK.")
+        python_check = subprocess.run(SSH_CMD + ["tasklist | findstr python"], capture_output=True, text=True)
+        if "python.exe" not in python_check.stdout:
+            alerts.append("⚠️ Ears 語音程式 (Python) 崩潰，正在從 GitHub 基準還原並注入金鑰...")
+            recover_ears()
+        else:
+            log("Ears Python process is OK.")
 
     # Check 3: Tunnel
     if not check_tunnel():
