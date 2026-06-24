@@ -89,7 +89,8 @@ def recover_ears():
                     "/Users/vincenthsiao/.openclaw/workspace/temp_ears.b64", 
                     "magic@192.168.50.204:C:/Users/magic/WelcomeAPI/ears.b64"])
     subprocess.run(SSH_CMD + ["certutil -f -decode C:\\Users\\magic\\WelcomeAPI\\ears.b64 C:\\Users\\magic\\WelcomeAPI\\ears.py"], capture_output=True)
-    recover_magicmirror()
+    subprocess.run(SSH_CMD + ["schtasks /run /tn \"RunEars\""], capture_output=True)
+    log("RunEars task triggered.")
 
 def recover_mac_ears():
     log("Reverting Mac Ears Python to GitHub baseline...")
@@ -129,6 +130,32 @@ def recover_magicmirror_config():
     recover_magicmirror()
 
 
+
+def check_zombie_ears():
+    try:
+        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='python.exe' and CommandLine LIKE '%ears.py%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
+        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        if len(lines) > 1:
+            log(f"Detected {len(lines)} ears.py python processes (Expected 1). Cleaning up...")
+            subprocess.run(SSH_CMD + ["taskkill /f /im python.exe"], capture_output=True, timeout=10)
+            return len(lines)
+        return 0
+    except Exception as e:
+        log(f"Error checking zombie ears.py: {e}")
+        return 0
+
+def check_zombie_node():
+    try:
+        # PM2 spawns multiple nodes, but if we exceed 6, something is wrong
+        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='node.exe'\" get ProcessId"], capture_output=True, text=True, timeout=10)
+        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        if len(lines) >= 8:
+            log(f"Detected {len(lines)} node.exe processes (Abnormal). Triggering recovery...")
+            return len(lines)
+        return 0
+    except Exception:
+        return 0
+
 def check_zombie_powershell():
     try:
         res = subprocess.run(SSH_CMD + ["wmic process where \"Name='powershell.exe' and CommandLine LIKE '%Welcome%ps1%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
@@ -143,20 +170,24 @@ def check_zombie_powershell():
         return 0
 
 def check_magicmirror():
-
     try:
-        res = subprocess.run(SSH_CMD + ["tasklist | findstr electron.exe"], capture_output=True, text=True, timeout=10)
-        return "electron.exe" in res.stdout
-    except Exception:
+        # Liveness Probe: ping local web server
+        res = subprocess.run(SSH_CMD + ["powershell", "-Command", "(Invoke-WebRequest -Uri http://localhost:8080/ -UseBasicParsing -TimeoutSec 5).StatusCode"], capture_output=True, text=True, timeout=15)
+        if "200" in res.stdout:
+            return True
+        else:
+            return False
+    except Exception as e:
+        log(f"MagicMirror Liveness Probe Error: {e}")
         return False
 
 def recover_magicmirror():
-    log("Recovering MagicMirror Dashboard via Full Reboot (Session boundary workaround)...")
-    # Due to Windows SSH Session 0 isolation, schtasks and WMI cannot reliably launch a GUI app in Console Session 1.
-    # The most robust way is to reboot the POS machine, which relies on AutoAdminLogon and mm_startup.bat.
-    subprocess.run(SSH_CMD + ["shutdown /r /t 5 /f /c \"Watchdog Recovery\""], capture_output=True)
-    log("Reboot command sent to 192.168.50.204. Waiting 60 seconds for it to come back up...")
-    time.sleep(60)
+    log("Recovering MagicMirror Dashboard using Scheduled Task (Session 1 bypass)...")
+    subprocess.run(SSH_CMD + ["taskkill /F /IM electron.exe /T"], capture_output=True)
+    subprocess.run(SSH_CMD + ["taskkill /F /IM node.exe /T"], capture_output=True)
+    res = subprocess.run(SSH_CMD + ["schtasks /run /tn \"RestartMM\""], capture_output=True, text=True)
+    log(f"RestartMM task triggered: {res.stdout.strip()}")
+    time.sleep(15)
 
 def main():
     alerts = []
@@ -246,6 +277,17 @@ def main():
         alerts.append(f"⚠️ 偵測到客廳主機卡了 {zombie_count} 個 Welcome.ps1 殭屍行程，Watchdog 已成功強制撲殺清理！")
     else:
         log("Zombie PowerShell patrol passed (No zombies found).")
+
+
+    # Check 10: Zombie Python / Node.js
+    zombie_ears_count = check_zombie_ears()
+    if zombie_ears_count > 1:
+        alerts.append(f"⚠️ 偵測到客廳麥克風卡了 {zombie_ears_count} 個 ears.py 分身！Watchdog 已強制屠魔清場，即將透過排程自動重生。")
+    
+    zombie_node_count = check_zombie_node()
+    if zombie_node_count >= 8:
+        alerts.append(f"⚠️ 偵測到客廳看板底層 Node.exe 堆疊了 {zombie_node_count} 個殭屍行程！Watchdog 已發動屠魔清場並透過排程重啟看板。")
+        recover_magicmirror()
 
     if alerts:
 
