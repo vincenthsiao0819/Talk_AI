@@ -25,7 +25,7 @@
           true
         {% endif %}
   action:
-    - delay: "00:00:05"
+    - delay: "00:00:01"
     - variables:
         welcome_names: >-
           {% set names = namespace(list=[]) %}
