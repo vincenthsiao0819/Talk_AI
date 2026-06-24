@@ -1,10 +1,27 @@
 import socket
 import subprocess
+import time
+import sys
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Setup Rotating Log
+logger = logging.getLogger("MacEars")
+logger.setLevel(logging.INFO)
+handler = RotatingFileHandler("/Users/vincenthsiao/.openclaw/workspace/Talk_AI/Mac_Server/mac_ears.log", maxBytes=5*1024*1024, backupCount=3)
+formatter = logging.Formatter('%(asctime)s - [%(name)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+def log(msg):
+    logger.info(msg)
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [MacEars] {msg}")
+    sys.stdout.flush()
 
 s = socket.socket()
 s.bind(("0.0.0.0", 5005))
 s.listen(5)
-print("Mac ears listener started on port 5005")
+log("Mac ears listener started on port 5005")
 
 while True:
     try:
@@ -12,7 +29,7 @@ while True:
         data = c.recv(4096).decode('utf-8').strip()
         c.close()
         if data:
-            print("Received from POS:", data)
+            log(f"Received from POS: {data}")
             
             # 1. 雙向紀錄：發送 Telegram 訊息讓使用者知道 Lobster 聽到了什麼
             subprocess.Popen([
@@ -30,4 +47,4 @@ while True:
                 "--deliver"
             ])
     except Exception as e:
-        print("Error:", e)
+        log(f"Error: {e}")

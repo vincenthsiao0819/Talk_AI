@@ -5,6 +5,8 @@ import time
 import base64
 import sys
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Secrets (Do NOT push this script to public GitHub, keep it local on Mac)
 OPENAI_API_KEY = "sk-proj-7GstW6mU9qJ2Q5k4Kk3mZf0wX-tJqOq8rF6eH_R3M_l-w3zU4s2zR5eP6oV0qX1tM-yVzfwA" # Extracted from start_ears.bat
@@ -12,8 +14,17 @@ OPENAI_API_KEY = "sk-proj-7GstW6mU9qJ2Q5k4Kk3mZf0wX-tJqOq8rF6eH_R3M_l-w3zU4s2zR5
 MUTE_FLAG_PATH = "/Users/vincenthsiao/.openclaw/workspace/Talk_AI/Mac_Server/mute.flag"
 SSH_CMD = ["sshpass", "-p", "6611", "ssh", "-o", "StrictHostKeyChecking=no", "magic@192.168.50.204"]
 
+# Setup Rotating Log
+logger = logging.getLogger("Watchdog")
+logger.setLevel(logging.INFO)
+handler = RotatingFileHandler("/Users/vincenthsiao/.openclaw/workspace/Talk_AI/Mac_Server/watchdog.log", maxBytes=5*1024*1024, backupCount=3)
+formatter = logging.Formatter('%(asctime)s - [%(name)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 def log(msg):
-    print(f"[Watchdog] {msg}")
+    logger.info(msg)
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [Watchdog] {msg}")
     sys.stdout.flush()
 
 def check_tunnel():
