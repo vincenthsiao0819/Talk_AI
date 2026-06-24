@@ -10,7 +10,7 @@
       value_template: >-
         {{ trigger.to_state is not none and '用戶：' in trigger.to_state.state }}
   action:
-    - delay: "00:00:01"
+    - delay: "00:00:05"
     - variables:
         # 從門鎖通知中提取開門的人名
         door_notif: >-
@@ -23,16 +23,16 @@
           {% if 'Sunny' in door_notif %}{% set names.list = names.list + ['千晴'] %}{% endif %}
           {% if 'Ray' in door_notif %}{% set names.list = names.list + ['Ray'] %}{% endif %}
           {# 第二優先：最近 5 分鐘內 iPhone 定位剛到家的人（補充門鎖沒抓到的同行者） #}
-          {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=5) %}
+          {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=3) %}
             {% if 'Vincent' not in names.list %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.anna_iphone', 'home') and now() - states.device_tracker.anna_iphone.last_changed < timedelta(minutes=5) %}
+          {% if is_state('device_tracker.anna_iphone', 'home') and now() - states.device_tracker.anna_iphone.last_changed < timedelta(minutes=3) %}
             {% if 'Anna' not in names.list %}{% set names.list = names.list + ['Anna'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.sunny_iphone', 'home') and now() - states.device_tracker.sunny_iphone.last_changed < timedelta(minutes=5) %}
+          {% if is_state('device_tracker.sunny_iphone', 'home') and now() - states.device_tracker.sunny_iphone.last_changed < timedelta(minutes=3) %}
             {% if '千晴' not in names.list %}{% set names.list = names.list + ['千晴'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.ray_iphone', 'home') and now() - states.device_tracker.ray_iphone.last_changed < timedelta(minutes=5) %}
+          {% if is_state('device_tracker.ray_iphone', 'home') and now() - states.device_tracker.ray_iphone.last_changed < timedelta(minutes=3) %}
             {% if 'Ray' not in names.list %}{% set names.list = names.list + ['Ray'] %}{% endif %}
           {% endif %}
           {{ names.list | join('、') }}
