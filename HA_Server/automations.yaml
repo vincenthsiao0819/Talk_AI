@@ -33,7 +33,7 @@
             {% set notif = states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') %}
             {% if 'Vincent' in notif %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
             {% if 'Anna' in notif %}{% set names.list = names.list + ['Anna'] %}{% endif %}
-            {% if 'Sunny' in notif %}{% set names.list = names.list + ['Sunny'] %}{% endif %}
+            {% if 'Sunny' in notif %}{% set names.list = names.list + ['千晴'] %}{% endif %}
             {% if 'Ray' in notif %}{% set names.list = names.list + ['Ray'] %}{% endif %}
           {% endif %}
           {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=5) %}
@@ -43,7 +43,7 @@
             {% if 'Anna' not in names.list %}{% set names.list = names.list + ['Anna'] %}{% endif %}
           {% endif %}
           {% if is_state('device_tracker.sunny_iphone', 'home') and now() - states.device_tracker.sunny_iphone.last_changed < timedelta(minutes=5) %}
-            {% if 'Sunny' not in names.list %}{% set names.list = names.list + ['Sunny'] %}{% endif %}
+            {% if '千晴' not in names.list %}{% set names.list = names.list + ['千晴'] %}{% endif %}
           {% endif %}
           {% if is_state('device_tracker.ray_iphone', 'home') and now() - states.device_tracker.ray_iphone.last_changed < timedelta(minutes=5) %}
             {% if 'Ray' not in names.list %}{% set names.list = names.list + ['Ray'] %}{% endif %}
