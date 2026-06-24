@@ -128,7 +128,22 @@ def recover_magicmirror_config():
     # Restart MagicMirror to apply
     recover_magicmirror()
 
+
+def check_zombie_powershell():
+    try:
+        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='powershell.exe' and CommandLine LIKE '%Welcome%ps1%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
+        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        if len(lines) >= 2:
+            log(f"Detected {len(lines)} zombie Welcome PowerShell processes. Cleaning up...")
+            subprocess.run(SSH_CMD + ["wmic process where \"Name='powershell.exe' and CommandLine LIKE '%Welcome%ps1%'\" call terminate"], capture_output=True, timeout=10)
+            return len(lines)
+        return 0
+    except Exception as e:
+        log(f"Error checking zombie powershell: {e}")
+        return 0
+
 def check_magicmirror():
+
     try:
         res = subprocess.run(SSH_CMD + ["tasklist | findstr electron.exe"], capture_output=True, text=True, timeout=10)
         return "electron.exe" in res.stdout
@@ -216,6 +231,7 @@ def main():
         log("MagicMirror Dashboard process is OK.")
 
 
+
     # Check 8: MagicMirror Config Integrity
     mm_config_status = subprocess.run(["git", "status", "--porcelain", "config_normal.js"], cwd="/Users/vincenthsiao/.openclaw/workspace/MagicMirror_normal-_setting_value_27inch_Display", capture_output=True, text=True)
     if "M " in mm_config_status.stdout or " M" in mm_config_status.stdout:
@@ -224,7 +240,15 @@ def main():
     else:
         log("MagicMirror config integrity is OK.")
 
+    # Check 9: Zombie PowerShell Process Patrol
+    zombie_count = check_zombie_powershell()
+    if zombie_count > 0:
+        alerts.append(f"⚠️ 偵測到客廳主機卡了 {zombie_count} 個 Welcome.ps1 殭屍行程，Watchdog 已成功強制撲殺清理！")
+    else:
+        log("Zombie PowerShell patrol passed (No zombies found).")
+
     if alerts:
+
         # Send Telegram alert
         msg = "\n".join(alerts) + "\n\n✅ 已根據 GitHub 乾淨版本完成自動還原！"
         subprocess.run(["openclaw", "message", "send", "--channel", "telegram", "--target", "5916594299", "--message", msg])
