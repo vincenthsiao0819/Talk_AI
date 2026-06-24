@@ -193,12 +193,15 @@ def check_magicmirror():
         return False
 
 def recover_magicmirror():
-    log("Recovering MagicMirror Dashboard using Scheduled Task (Session 1 bypass)...")
+    log("Recovering MagicMirror Dashboard via Full Reboot (Session 0 cannot launch GUI in Session 1)...")
     subprocess.run(SSH_CMD + ["taskkill /F /IM electron.exe /T"], capture_output=True)
     subprocess.run(SSH_CMD + ["taskkill /F /IM node.exe /T"], capture_output=True)
-    res = subprocess.run(SSH_CMD + ["schtasks /run /tn \"RestartMM\""], capture_output=True, text=True)
-    log(f"RestartMM task triggered: {res.stdout.strip()}")
-    time.sleep(15)
+    # Clear Electron cache to prevent white screen deadlock
+    subprocess.run(SSH_CMD + ["powershell -Command \"Remove-Item -Path 'C:\\Users\\magic\\AppData\\Roaming\\Electron\\Cache\\*' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'C:\\Users\\magic\\AppData\\Roaming\\Electron\\Code Cache\\*' -Recurse -Force -ErrorAction SilentlyContinue\""], capture_output=True)
+    # Reboot: AutoAdminLogon + mm_startup.bat will auto-launch MagicMirror in Session 1
+    subprocess.run(SSH_CMD + ["shutdown /r /t 10 /f /c \"Watchdog Recovery\""], capture_output=True)
+    log("Reboot command sent to 192.168.50.204. Waiting 90 seconds for it to come back up...")
+    time.sleep(90)
 
 def main():
     alerts = []
