@@ -22,6 +22,10 @@
           {% if 'Anna' in door_notif %}{% set names.list = names.list + ['Anna'] %}{% endif %}
           {% if 'Sunny' in door_notif or '千晴' in door_notif %}{% set names.list = names.list + ['千晴'] %}{% endif %}
           {% if 'Ray' in door_notif %}{% set names.list = names.list + ['Ray'] %}{% endif %}
+          {# 第三優先：如果以上都沒中，且有「用戶：」，動態擷取名字 (例如阿公、阿嬤、打掃阿姨等) #}
+          {% if names.list | length == 0 and '用戶：' in door_notif %}
+            {% set names.list = names.list + [door_notif.split('用戶：')[1].split(' ')[0] | trim] %}
+          {% endif %}
           {# 第二優先：最近 5 分鐘內 iPhone 定位剛到家的人（補充門鎖沒抓到的同行者） #}
           {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=3) %}
             {% if 'Vincent' not in names.list %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
