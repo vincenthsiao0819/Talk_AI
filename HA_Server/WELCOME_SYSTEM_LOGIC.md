@@ -30,7 +30,7 @@
 |---|---|---|
 | `Vincent` | Vincent | 門鎖 + iPhone 雷達 |
 | `Anna` | Anna | 門鎖 + iPhone 雷達 |
-| `Sunny` 或 `千晴` | 千晴 | 門鎖 + iPhone 雷達 |
+| `千晴` (門鎖) 或 `Sunny` (手機雷達) | 千晴 | 門鎖用戶名已改為「千晴」，手機雷達仍為 Sunny |
 | `Ray` | Ray | 門鎖 + iPhone 雷達 |
 | `親愛的` | 親愛的 | **獨立家人身分**，僅門鎖判斷 |
 | `用戶：XXX` | XXX (動態擷取) | 其他訪客 (如阿公、打掃阿姨) |
@@ -71,6 +71,12 @@
 | 全家到齊 | 「Vincent、Anna、千晴、Ray、親愛的... 歡迎回家」 |
 
 ## 2026-06-26 Code Change 摘要
+
+### 門鎖用戶名變更 (22:08)
+- **變更內容**：電子門鎖的用戶名稱從 `Sunny` 改為 `千晴`
+- **影響**：門鎖推播通知內文會直接顯示「用戶：千晴」而非「用戶：Sunny」
+- **程式碼相容性**：automations.yaml 同時比對 `Sunny` 和 `千晴`，無論門鎖傳來哪個都能正確攔截並廣播為「千晴」
+- **手機雷達**：iPhone 定位 (`device_tracker.sunny_iphone`) 仍以 Sunny 識別，不受門鎖改名影響
 
 ### 問題根因
 1. **HA Docker 卡死**：Home Assistant 從 6/24 晚間起卡死，平板斷線 (顯示「無法連線至 Home Assistant」)，所有歡迎系統完全癱瘓。
