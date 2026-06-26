@@ -8,7 +8,9 @@
   condition:
     - condition: template
       value_template: >-
-        {{ trigger.to_state is not none and ('用戶：' in trigger.to_state.state or 'Vincent' in trigger.to_state.state or 'Anna' in trigger.to_state.state or 'Sunny' in trigger.to_state.state or 'Ray' in trigger.to_state.state) }}
+        {% set title = trigger.to_state.state if trigger.to_state else '' %}
+        {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
+        {{ trigger.to_state is not none and ('用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or 'Ray' in (title ~ text)) }}
   action:
     - delay: "00:00:05"
     - variables:
