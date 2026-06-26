@@ -13,6 +13,7 @@ OPENAI_API_KEY = "sk-proj-7GstW6mU9qJ2Q5k4Kk3mZf0wX-tJqOq8rF6eH_R3M_l-w3zU4s2zR5
 
 MUTE_FLAG_PATH = "/Users/vincenthsiao/.openclaw/workspace/Talk_AI/Mac_Server/mute.flag"
 SSH_CMD = ["sshpass", "-p", "6611", "ssh", "-o", "StrictHostKeyChecking=no", "magic@192.168.50.204"]
+SSH_154_CMD = ["ssh", "-o", "StrictHostKeyChecking=no", "Vincent Hsiao@192.168.50.154"]
 
 # Setup Rotating Log
 logger = logging.getLogger("Watchdog")
@@ -76,7 +77,8 @@ def recover_api():
                     "/Users/vincenthsiao/.openclaw/workspace/temp_api.b64", 
                     "magic@192.168.50.204:C:/Users/magic/WelcomeAPI/server.b64"])
     subprocess.run(SSH_CMD + ["certutil -f -decode C:\\Users\\magic\\WelcomeAPI\\server.b64 C:\\Users\\magic\\WelcomeAPI\\server.js"], capture_output=True)
-    recover_magicmirror()
+    subprocess.run(SSH_CMD + ["schtasks /run /tn \"RunWelcomeAPI\""], capture_output=True)
+    log("Triggered RunWelcomeAPI task.")
 
 def recover_ears():
     log("Recovering Ears Python from GitHub baseline...")
@@ -195,13 +197,27 @@ def check_magicmirror():
 def recover_magicmirror():
     log("Recovering MagicMirror Dashboard via Full Reboot (Session 0 cannot launch GUI in Session 1)...")
     subprocess.run(SSH_CMD + ["taskkill /F /IM electron.exe /T"], capture_output=True)
-    subprocess.run(SSH_CMD + ["taskkill /F /IM node.exe /T"], capture_output=True)
+    subprocess.run(SSH_CMD + ["wmic process where \"Name='node.exe' and not CommandLine like '%server.js%'\" call terminate"], capture_output=True)
     # Clear Electron cache to prevent white screen deadlock
     subprocess.run(SSH_CMD + ["powershell -Command \"Remove-Item -Path 'C:\\Users\\magic\\AppData\\Roaming\\Electron\\Cache\\*' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'C:\\Users\\magic\\AppData\\Roaming\\Electron\\Code Cache\\*' -Recurse -Force -ErrorAction SilentlyContinue\""], capture_output=True)
     # Reboot: AutoAdminLogon + mm_startup.bat will auto-launch MagicMirror in Session 1
     subprocess.run(SSH_CMD + ["shutdown /r /t 10 /f /c \"Watchdog Recovery\""], capture_output=True)
     log("Reboot command sent to 192.168.50.204. Waiting 90 seconds for it to come back up...")
     time.sleep(90)
+
+def check_ha_server():
+    try:
+        s = socket.socket()
+        s.settimeout(3)
+        s.connect(("192.168.50.154", 8123))
+        s.close()
+        return True
+    except:
+        return False
+
+def recover_ha_server():
+    log("Home Assistant is down. Attempting to restart Docker container on 192.168.50.154...")
+    subprocess.run(SSH_154_CMD + ["docker restart homeassistant"], capture_output=True)
 
 def main():
     alerts = []
@@ -212,6 +228,13 @@ def main():
         recover_api()
     else:
         log("Welcome API is OK.")
+
+    # Check 1.5: Home Assistant Server on 154
+    if not check_ha_server():
+        alerts.append("⚠️ Home Assistant 伺服器 (192.168.50.154:8123) 斷線或卡死，Watchdog 正在嘗試遠端重啟 Docker 容器...")
+        recover_ha_server()
+    else:
+        log("Home Assistant Server is OK.")
 
     # Check 2: Ears Process
     if os.path.exists(MUTE_FLAG_PATH):
