@@ -10,7 +10,7 @@
       value_template: >-
         {% set title = trigger.to_state.state if trigger.to_state else '' %}
         {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
-        {{ trigger.to_state is not none and ('用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text)) }}
+        {{ trigger.to_state is not none and ('用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text)) }}
   action:
     - delay: "00:00:05"
     - variables:
@@ -27,6 +27,7 @@
           {% if '阿公' in door_notif %}{% set names.list = names.list + ['阿公'] %}{% endif %}
           {% if '叔叔' in door_notif %}{% set names.list = names.list + ['叔叔'] %}{% endif %}
           {% if '阿嬤' in door_notif %}{% set names.list = names.list + ['阿嬤'] %}{% endif %}
+          {% if '爺爺' in door_notif %}{% set names.list = names.list + ['爺爺'] %}{% endif %}
           {# 第三優先：如果以上都沒中，且有「用戶：」，動態擷取名字 (例如阿公、阿嬤、打掃阿姨等) #}
           {% if '用戶：' in door_notif %}
             {% set extracted = door_notif.split('用戶：')[1].split(' ')[0] | trim %}
@@ -53,6 +54,9 @@
           {% endif %}
           {% if is_state('device_tracker.iphone_3', 'home') and now() - states.device_tracker.iphone_3.last_changed < timedelta(minutes=3) %}
             {% if '阿嬤' not in names.list %}{% set names.list = names.list + ['阿嬤'] %}{% endif %}
+          {% endif %}
+          {% if is_state('device_tracker.iphone_2', 'home') and now() - states.device_tracker.iphone_2.last_changed < timedelta(minutes=3) %}
+            {% if '爺爺' not in names.list %}{% set names.list = names.list + ['爺爺'] %}{% endif %}
           {% endif %}
           {# 親愛的永遠排在最後 #}
           {% if '親愛的' in door_notif and '親愛的' not in names.list %}{% set names.list = names.list + ['親愛的'] %}{% endif %}
