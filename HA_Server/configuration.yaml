@@ -42,4 +42,7 @@ rest_command:
     url: "http://192.168.50.204:8081/welcome?name={{ user | urlencode }}"
     method: GET
   welcome_api:
-    url: "http://192.168.50.204:8081/welcome?name={{ name }}"
+    url: "http://192.168.50.204:8081/welcome"
+    method: POST
+    content_type: "application/json"
+    payload: '{"name": "{{ name | trim }}"}'
