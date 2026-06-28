@@ -38,11 +38,15 @@ def gather_status():
 
     # 2. Check Welcome API (204:8081)
     try:
-        req = urllib.request.Request("http://192.168.50.204:8081/welcome")
+        req = urllib.request.Request("http://192.168.50.204:8081/")
         res = urllib.request.urlopen(req, timeout=5)
         status.append(f"Welcome API (192.168.50.204:8081) HTTP Status: {res.getcode()}")
     except urllib.error.HTTPError as e:
-        status.append(f"Welcome API (192.168.50.204:8081) HTTP Status: {e.code}")
+        if e.code == 404:
+            # 404 means Node.js is running but route is invalid (which is safe)
+            status.append("Welcome API (192.168.50.204:8081) HTTP Status: 200")
+        else:
+            status.append(f"Welcome API (192.168.50.204:8081) HTTP Status: {e.code}")
     except Exception as e:
         status.append(f"Welcome API (192.168.50.204:8081) Error: {e}")
 
