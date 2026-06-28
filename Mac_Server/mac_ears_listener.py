@@ -5,6 +5,7 @@ import sys
 import json
 import urllib.request
 import urllib.error
+import os
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -17,6 +18,7 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 GATEWAY_URL = "http://127.0.0.1:18789"
+GATEWAY_TOKEN = os.environ.get("OPENCLAW_GATEWAY_TOKEN", "")
 TTS_URL = "http://192.168.50.204:8081/speak"
 TELEGRAM_TARGET = "telegram:5916594299"
 
@@ -39,6 +41,8 @@ def send_telegram(text):
         }).encode('utf-8')
         req = urllib.request.Request(f"{GATEWAY_URL}/tools/invoke", data=payload)
         req.add_header('Content-Type', 'application/json')
+        if GATEWAY_TOKEN:
+            req.add_header('Authorization', f'Bearer {GATEWAY_TOKEN}')
         urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         log(f"Telegram send failed: {e}")
