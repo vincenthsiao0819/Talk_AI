@@ -40,7 +40,6 @@ recognizer = sr.Recognizer()
 recognizer.dynamic_energy_threshold = True
 recognizer.energy_threshold = 250
 
-OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE"
 
 def trigger_tts(text):
     try:
@@ -64,75 +63,54 @@ def send_to_mac(text):
         log("Socket error:", e)
 
 def recognize_with_whisper(audio_data):
-    if not OPENAI_API_KEY:
-        log("No OpenAI API key found, falling back to Google STT")
-        return recognizer.recognize_google(audio_data, language="zh-TW")
+    # Strategy: Try Local Whisper (GPU on 192.168.50.154) first, fallback to Google STT
+    LOCAL_WHISPER_URL = "http://192.168.50.154:9000/asr?language=zh&output=json"
     
+    wav_data = audio_data.get_wav_data()
+    
+    # === Attempt 1: Local Whisper (GPU) ===
     try:
-        wav_data = audio_data.get_wav_data()
-        boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
+        boundary = "----LocalWhisperBoundary"
+        body = bytearray()
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(b'Content-Disposition: form-data; name="audio_file"; filename="audio.wav"\r\n')
+        body.extend(b'Content-Type: audio/wav\r\n\r\n')
+        body.extend(wav_data)
+        body.extend(f"\r\n--{boundary}--\r\n".encode())
         
-        body = []
-        body.append(f"--{boundary}")
-        body.append('Content-Disposition: form-data; name="file"; filename="audio.wav"')
-        body.append('Content-Type: audio/wav')
-        body.append('')
-        body.append(wav_data)
-        
-        body.append(f"--{boundary}")
-        body.append('Content-Disposition: form-data; name="prompt"')
-        body.append('')
-        body.append(b'Vincent, Anna, Sunny, Ray, \xe9\x98\xbf\xe8\xb1\xb9, \xe5\xae\xb6\xe4\xb8\x96\xe4\xbb\xa3, \xe9\xbe\x8d\xe8\x9d\xa6')
-        
-        body.append(f"--{boundary}")
-        body.append('Content-Disposition: form-data; name="model"')
-        body.append('')
-        body.append(b'whisper-1')
-        
-        body.append(f"--{boundary}")
-        body.append('Content-Disposition: form-data; name="language"')
-        body.append('')
-        body.append(b'zh')
-        
-        body.append(f"--{boundary}--")
-        body.append(b'')
-        
-        body_bytes = bytearray()
-        for item in body:
-            if isinstance(item, str):
-                body_bytes.extend(item.encode('utf-8'))
-                body_bytes.extend(b'\r\n')
-            elif isinstance(item, bytes):
-                body_bytes.extend(item)
-                body_bytes.extend(b'\r\n')
-                
-        req = urllib.request.Request("https://api.openai.com/v1/audio/transcriptions")
-        req.add_header('Authorization', f'Bearer {OPENAI_API_KEY}')
+        req = urllib.request.Request(LOCAL_WHISPER_URL)
         req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
         
-        log("Sending audio to Whisper API...")
-        response = urllib.request.urlopen(req, data=body_bytes, timeout=15)
-        result = json.loads(response.read().decode('utf-8'))
-        return result.get('text', '')
+        log("Sending audio to Local Whisper (GPU)...")
+        response = urllib.request.urlopen(req, data=bytes(body), timeout=10)
+        result_text = response.read().decode('utf-8').strip()
         
-    except urllib.error.HTTPError as e:
-        log("Whisper API HTTP Error:", e.code)
-        log("Falling back to Google STT...")
+        # API returns plain text or JSON depending on output param
         try:
-            return recognizer.recognize_google(audio_data, language="zh-TW")
-        except Exception as e2:
-            log("Google STT Error:", e2)
-            return ""
+            result = json.loads(result_text)
+            text = result.get('text', result_text)
+        except json.JSONDecodeError:
+            text = result_text
+        
+        if text:
+            log("Local Whisper recognized:", text)
+            return text
+        else:
+            log("Local Whisper returned empty, falling back...")
+            
     except Exception as e:
-        log("Whisper API Error:", str(e))
+        log("Local Whisper Error:", str(e))
         log("Falling back to Google STT...")
-        try:
-            return recognizer.recognize_google(audio_data, language="zh-TW")
-        except Exception as e2:
-            log("Google STT Error:", e2)
-            return ""
-    except Exception as e:
-        log("Whisper API Error:", str(e))
+    
+    # === Attempt 2: Google STT (Free, always available) ===
+    try:
+        text = recognizer.recognize_google(audio_data, language="zh-TW")
+        log("Google STT recognized:", text)
+        return text
+    except Exception as e2:
+        log("Google STT Error:", e2)
+        return ""
+
 def wait_for_mac_tunnel():
     log("Waiting for Mac SSH tunnel to connect on port 5005...")
     while True:
