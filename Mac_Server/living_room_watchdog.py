@@ -219,6 +219,21 @@ def recover_ha_server():
     log("Home Assistant is down. Attempting to restart Docker container on 192.168.50.154...")
     subprocess.run(SSH_154_CMD + ["docker restart homeassistant"], capture_output=True)
 
+def check_adb_sniffer():
+    try:
+        res = subprocess.run(SSH_154_CMD + ["wmic process where \"CommandLine LIKE '%bridge_v3.py%' or CommandLine LIKE '%adb_welcome_sniffer%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
+        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        return len(lines) > 0
+    except Exception as e:
+        log(f"ADB Sniffer Probe Error: {e}")
+        return False
+
+def recover_adb_sniffer():
+    log("ADB Sniffer is down on 192.168.50.154. Syncing and restarting...")
+    # Attempt to use pull if cleanly setup, otherwise just scp directly from local
+    subprocess.run(["scp", "-o", "StrictHostKeyChecking=no", "/Users/vincenthsiao/.openclaw/workspace/Talk_AI/GPU_Server/adb_welcome_sniffer.py", "Vincent Hsiao@192.168.50.154:C:/bridge_v3.py"])
+    subprocess.run(SSH_154_CMD + ["schtasks /run /tn \"MM_ADB_Welcome_Sniffer\""], capture_output=True)
+
 def main():
     alerts = []
     
@@ -325,6 +340,13 @@ def main():
     if zombie_node_count >= 8:
         alerts.append(f"⚠️ 偵測到客廳看板底層 Node.exe 堆疊了 {zombie_node_count} 個殭屍行程！Watchdog 已發動屠魔清場並透過排程重啟看板。")
         recover_magicmirror()
+
+    # Check 11: ADB Sniffer on GPU Node
+    if not check_adb_sniffer():
+        alerts.append("⚠️ ADB Welcome Sniffer 斷線，Watchdog 正在遠端重啟該排程...")
+        recover_adb_sniffer()
+    else:
+        log("ADB Welcome Sniffer is OK.")
 
     if alerts:
 
