@@ -146,8 +146,9 @@ def recover_magicmirror_config():
 
 def check_zombie_ears():
     try:
-        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='python.exe' and CommandLine LIKE '%ears.py%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
-        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='python.exe' and CommandLine LIKE '%ears.py%'\" get ProcessId"], capture_output=True, timeout=10)
+        stdout_str = res.stdout.decode('utf-8', errors='ignore')
+        lines = [line.strip() for line in stdout_str.splitlines() if line.strip() and "ProcessId" not in line]
         if len(lines) > 1:
             log(f"Detected {len(lines)} ears.py python processes (Expected 1). Cleaning up...")
             subprocess.run(SSH_CMD + ["taskkill /f /im python.exe"], capture_output=True, timeout=10)
@@ -160,8 +161,9 @@ def check_zombie_ears():
 def check_zombie_node():
     try:
         # PM2 spawns multiple nodes, but if we exceed 6, something is wrong
-        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='node.exe'\" get ProcessId"], capture_output=True, text=True, timeout=10)
-        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='node.exe'\" get ProcessId"], capture_output=True, timeout=10)
+        stdout_str = res.stdout.decode('utf-8', errors='ignore')
+        lines = [line.strip() for line in stdout_str.splitlines() if line.strip() and "ProcessId" not in line]
         if len(lines) >= 8:
             log(f"Detected {len(lines)} node.exe processes (Abnormal). Triggering recovery...")
             return len(lines)
@@ -171,8 +173,9 @@ def check_zombie_node():
 
 def check_zombie_powershell():
     try:
-        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='powershell.exe' and CommandLine LIKE '%Welcome%ps1%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
-        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        res = subprocess.run(SSH_CMD + ["wmic process where \"Name='powershell.exe' and CommandLine LIKE '%Welcome%ps1%'\" get ProcessId"], capture_output=True, timeout=10)
+        stdout_str = res.stdout.decode('utf-8', errors='ignore')
+        lines = [line.strip() for line in stdout_str.splitlines() if line.strip() and "ProcessId" not in line]
         if len(lines) >= 2:
             log(f"Detected {len(lines)} zombie Welcome PowerShell processes. Cleaning up...")
             subprocess.run(SSH_CMD + ["wmic process where \"Name='powershell.exe' and CommandLine LIKE '%Welcome%ps1%'\" call terminate"], capture_output=True, timeout=10)
@@ -221,8 +224,9 @@ def recover_ha_server():
 
 def check_adb_sniffer():
     try:
-        res = subprocess.run(SSH_154_CMD + ["wmic process where \"CommandLine LIKE '%bridge_v3.py%' or CommandLine LIKE '%adb_welcome_sniffer%'\" get ProcessId"], capture_output=True, text=True, timeout=10)
-        lines = [line.strip() for line in res.stdout.splitlines() if line.strip() and "ProcessId" not in line]
+        res = subprocess.run(SSH_154_CMD + ["wmic process where \"CommandLine LIKE '%bridge_v3.py%' or CommandLine LIKE '%adb_welcome_sniffer%'\" get ProcessId"], capture_output=True, timeout=10)
+        stdout_str = res.stdout.decode('utf-8', errors='ignore')
+        lines = [line.strip() for line in stdout_str.splitlines() if line.strip() and "ProcessId" not in line]
         return len(lines) > 0
     except Exception as e:
         log(f"ADB Sniffer Probe Error: {e}")
