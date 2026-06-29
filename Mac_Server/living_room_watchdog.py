@@ -224,9 +224,9 @@ def recover_ha_server():
 
 def check_adb_sniffer():
     try:
-        res = subprocess.run(SSH_154_CMD + ["wmic process where \"CommandLine LIKE '%bridge_v3.py%' or CommandLine LIKE '%adb_welcome_sniffer%'\" get ProcessId"], capture_output=True, timeout=10)
+        res = subprocess.run(SSH_154_CMD + ["powershell", "-Command", "\"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bridge_v3.py*' -or $_.CommandLine -like '*adb_welcome_sniffer*' } | Select-Object -ExpandProperty ProcessId\""], capture_output=True, timeout=10)
         stdout_str = res.stdout.decode('utf-8', errors='ignore')
-        lines = [line.strip() for line in stdout_str.splitlines() if line.strip() and "ProcessId" not in line]
+        lines = [line.strip() for line in stdout_str.splitlines() if line.strip()]
         return len(lines) > 0
     except Exception as e:
         log(f"ADB Sniffer Probe Error: {e}")
