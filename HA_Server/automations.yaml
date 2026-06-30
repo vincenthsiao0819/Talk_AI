@@ -7,7 +7,6 @@
       platform: webhook
       webhook_id: welcome_door_lock_md
       allowed_methods:
-        - GET
         - POST
       local_only: true
     # 備援：HA Companion App 同步推播 (可能有延遲)
@@ -18,8 +17,7 @@
     - condition: template
       value_template: >-
         {% if trigger.id == 'macrodroid_webhook' %}
-          {% set raw = trigger.query.get('text', '') if trigger.query else '' %}
-          {{ '用戶：' in raw or 'Vincent' in raw or 'Anna' in raw or 'Sunny' in raw or '千晴' in raw or 'Ray' in raw or '親愛的' in raw or '阿公' in raw or '叔叔' in raw or '阿嬤' in raw or '爺爺' in raw or '奶奶' in raw }}
+          true
         {% else %}
           {% set title = trigger.to_state.state if trigger.to_state else '' %}
           {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
@@ -31,7 +29,7 @@
         # 從門鎖通知中提取開門的人名
         door_notif: >-
           {% if trigger.id == 'macrodroid_webhook' %}
-            {{ trigger.query.get('text', '') if trigger.query else '' }}
+            {{ trigger.json['text'] | default('') }}
           {% else %}
             {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
           {% endif %}
