@@ -90,6 +90,43 @@ def gather_status():
     except Exception as e:
         status.append(f"154 to 204 connectivity check failed: {e}")
 
+    # 7. Check Samsung Tablet online (MacroDroid prerequisite)
+    try:
+        res = subprocess.run(["ping", "-c", "2", "-W", "3", "192.168.50.156"], capture_output=True, timeout=10)
+        if res.returncode == 0:
+            status.append("Samsung Tablet (192.168.50.156) Ping: Online")
+        else:
+            status.append("Samsung Tablet (192.168.50.156) Ping: OFFLINE - MacroDroid 歡迎系統可能已失效")
+    except Exception as e:
+        status.append(f"Samsung Tablet Ping Error: {e}")
+
+    # 8. Check HA Welcome Automation heartbeat (last_triggered within 24h)
+    try:
+        from datetime import datetime, timezone
+        res = subprocess.run(SSH_154_CMD + ["type", "C:\\ha_token.txt"], capture_output=True, timeout=10)
+        ha_token = res.stdout.decode('utf-8', errors='ignore').strip()
+        if ha_token:
+            req = urllib.request.Request(
+                "http://192.168.50.154:8123/api/states/automation.ke_ting_guang_bo_quan_fang_wei_lei_da_yu_men_suo_hun_he_huan_ying_xi_tong",
+                headers={"Authorization": f"Bearer {ha_token}", "Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+            last_triggered = data.get('attributes', {}).get('last_triggered', '')
+            if last_triggered:
+                last_dt = datetime.fromisoformat(last_triggered.replace('Z', '+00:00'))
+                age_hours = (datetime.now(timezone.utc) - last_dt).total_seconds() / 3600
+                if age_hours > 24:
+                    status.append(f"HA Welcome Automation: STALE - 超過 {age_hours:.0f} 小時未觸發，MacroDroid 可能已失效")
+                else:
+                    status.append(f"HA Welcome Automation: OK - {age_hours:.1f}h ago")
+            else:
+                status.append("HA Welcome Automation: Never triggered")
+        else:
+            status.append("HA Welcome Automation: Cannot read HA token")
+    except Exception as e:
+        status.append(f"HA Welcome Automation Heartbeat Error: {e}")
+
     return "\n".join(status)
 
 def ask_hermes(status_report):
