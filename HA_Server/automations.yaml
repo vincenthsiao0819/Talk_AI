@@ -24,7 +24,6 @@
           {{ trigger.to_state is not none and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
         {% endif %}
   action:
-    - delay: "00:00:05"
     - variables:
         # 從門鎖通知中提取開門的人名
         door_notif: >-
@@ -81,6 +80,7 @@
           {# 親愛的永遠排在最後 #}
           {% if '親愛的' in door_notif and '親愛的' not in names.list %}{% set names.list = names.list + ['親愛的'] %}{% endif %}
           {{ names.list | join('、') }}
+    - delay: "00:00:05"
     - condition: template
       value_template: "{{ welcome_names | length > 0 }}"
     - service: rest_command.welcome_api
