@@ -222,21 +222,52 @@ def recover_ha_server():
     log("Home Assistant is down. Attempting to restart Docker container on 192.168.50.154...")
     subprocess.run(SSH_154_CMD + ["docker restart homeassistant"], capture_output=True)
 
-def check_adb_sniffer():
+def check_tablet_online():
+    """Ping Samsung tablet (192.168.50.156) to verify it's on the network."""
     try:
-        res = subprocess.run(SSH_154_CMD + ["powershell", "-Command", "\"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bridge_v3.py*' -or $_.CommandLine -like '*adb_welcome_sniffer*' } | Select-Object -ExpandProperty ProcessId\""], capture_output=True, timeout=10)
-        stdout_str = res.stdout.decode('utf-8', errors='ignore')
-        lines = [line.strip() for line in stdout_str.splitlines() if line.strip()]
-        return len(lines) > 0
+        res = subprocess.run(["ping", "-c", "2", "-W", "3", "192.168.50.156"], capture_output=True, timeout=10)
+        return res.returncode == 0
     except Exception as e:
-        log(f"ADB Sniffer Probe Error: {e}")
+        log(f"Tablet Ping Error: {e}")
         return False
 
-def recover_adb_sniffer():
-    log("ADB Sniffer is down on 192.168.50.154. Syncing and restarting...")
-    # Attempt to use pull if cleanly setup, otherwise just scp directly from local
-    subprocess.run(["scp", "-o", "StrictHostKeyChecking=no", "/Users/vincenthsiao/.openclaw/workspace/Talk_AI/GPU_Server/adb_welcome_sniffer.py", "Vincent Hsiao@192.168.50.154:C:/bridge_v3.py"])
-    subprocess.run(SSH_154_CMD + ["schtasks /run /tn \"MM_ADB_Welcome_Sniffer\""], capture_output=True)
+def check_ha_welcome_heartbeat():
+    """Check if HA welcome automation was triggered in the last 24 hours."""
+    try:
+        import json
+        from datetime import datetime, timezone, timedelta
+        
+        # Read HA token
+        res = subprocess.run(SSH_154_CMD + ["type", "C:\\ha_token.txt"], capture_output=True, timeout=10)
+        ha_token = res.stdout.decode('utf-8', errors='ignore').strip()
+        if not ha_token:
+            log("Cannot read HA token.")
+            return 'error'
+        
+        req = urllib.request.Request(
+            "http://192.168.50.154:8123/api/states/automation.ke_ting_guang_bo_quan_fang_wei_lei_da_yu_men_suo_hun_he_huan_ying_xi_tong",
+            headers={"Authorization": f"Bearer {ha_token}", "Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        
+        last_triggered = data.get('attributes', {}).get('last_triggered')
+        if not last_triggered:
+            log("HA automation has never been triggered.")
+            return 'stale'
+        
+        # Parse ISO timestamp
+        last_dt = datetime.fromisoformat(last_triggered.replace('Z', '+00:00'))
+        now_utc = datetime.now(timezone.utc)
+        age_hours = (now_utc - last_dt).total_seconds() / 3600
+        
+        log(f"HA Welcome Automation last triggered {age_hours:.1f} hours ago.")
+        if age_hours > 24:
+            return 'stale'
+        return 'ok'
+    except Exception as e:
+        log(f"HA Welcome Heartbeat Error: {e}")
+        return 'error'
 
 def main():
     alerts = []
@@ -345,12 +376,20 @@ def main():
         alerts.append(f"⚠️ 偵測到客廳看板底層 Node.exe 堆疊了 {zombie_node_count} 個殭屍行程！Watchdog 已發動屠魔清場並透過排程重啟看板。")
         recover_magicmirror()
 
-    # Check 11: ADB Sniffer on GPU Node
-    if not check_adb_sniffer():
-        alerts.append("⚠️ ADB Welcome Sniffer 斷線，Watchdog 正在遠端重啟該排程...")
-        recover_adb_sniffer()
+    # Check 11: 平板在線狀態 (MacroDroid 前提)
+    if not check_tablet_online():
+        alerts.append("⚠️ 三星平板 (192.168.50.156) 離線！MacroDroid 歡迎系統可能已失效，請檢查平板電源與 Wi-Fi。")
     else:
-        log("ADB Welcome Sniffer is OK.")
+        log("Samsung Tablet (192.168.50.156) is online.")
+
+    # Check 12: HA 歡迎系統 Automation 心跳 (24 小時內是否有觸發過)
+    ha_heartbeat_status = check_ha_welcome_heartbeat()
+    if ha_heartbeat_status == 'stale':
+        alerts.append("⚠️ HA 歡迎系統 Automation 超過 24 小時未觸發！MacroDroid 或 HA Companion App 可能已失效，請檢查平板上的 MacroDroid 是否正常運作。")
+    elif ha_heartbeat_status == 'error':
+        alerts.append("⚠️ 無法查詢 HA 歡迎系統 Automation 心跳狀態，HA API 可能異常。")
+    else:
+        log("HA Welcome Automation heartbeat is OK.")
 
     if alerts:
 
