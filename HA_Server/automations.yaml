@@ -28,7 +28,7 @@
         # 從門鎖通知中提取開門的人名
         door_notif: >-
           {% if trigger.id == 'macrodroid_webhook' %}
-            {{ trigger.json['text'] | default('') }}
+            {% if trigger.json is defined and trigger.json %}{{ trigger.json.get('text', '') }}{% elif trigger.data is defined and trigger.data %}{{ trigger.data.get('text', '') }}{% else %}{% endif %}
           {% else %}
             {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
           {% endif %}
@@ -80,6 +80,10 @@
           {# 親愛的永遠排在最後 #}
           {% if '親愛的' in door_notif and '親愛的' not in names.list %}{% set names.list = names.list + ['親愛的'] %}{% endif %}
           {{ names.list | join('、') }}
+    - service: persistent_notification.create
+      data:
+        title: "Webhook Debug"
+        message: "Parsed Names: {{ welcome_names }} | Raw: {{ door_notif }}"
     - delay: "00:00:05"
     - condition: template
       value_template: "{{ welcome_names | length > 0 }}"
