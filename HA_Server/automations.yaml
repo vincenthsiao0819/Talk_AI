@@ -2,21 +2,39 @@
   alias: "客廳廣播：門鎖觸發歡迎系統"
   mode: single
   trigger:
-    # 唯一觸發源：電子門鎖開門通知
-    - platform: state
+    # 主力：MacroDroid 從平板內部攔截推播，瞬間送達 (零延遲)
+    - id: macrodroid_webhook
+      platform: webhook
+      webhook_id: welcome_door_lock_md
+      allowed_methods:
+        - GET
+        - POST
+      local_only: true
+    # 備援：HA Companion App 同步推播 (可能有延遲)
+    - id: door_lock_sensor
+      platform: state
       entity_id: sensor.sm_x936b_vincent_pad_last_notification
   condition:
     - condition: template
       value_template: >-
-        {% set title = trigger.to_state.state if trigger.to_state else '' %}
-        {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
-        {{ trigger.to_state is not none and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
+        {% if trigger.id == 'macrodroid_webhook' %}
+          {% set raw = trigger.query.get('text', '') if trigger.query else '' %}
+          {{ '用戶：' in raw or 'Vincent' in raw or 'Anna' in raw or 'Sunny' in raw or '千晴' in raw or 'Ray' in raw or '親愛的' in raw or '阿公' in raw or '叔叔' in raw or '阿嬤' in raw or '爺爺' in raw or '奶奶' in raw }}
+        {% else %}
+          {% set title = trigger.to_state.state if trigger.to_state else '' %}
+          {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
+          {{ trigger.to_state is not none and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
+        {% endif %}
   action:
     - delay: "00:00:05"
     - variables:
         # 從門鎖通知中提取開門的人名
         door_notif: >-
-          {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
+          {% if trigger.id == 'macrodroid_webhook' %}
+            {{ trigger.query.get('text', '') if trigger.query else '' }}
+          {% else %}
+            {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
+          {% endif %}
         welcome_names: >-
           {% set names = namespace(list=[]) %}
           {# 第一優先：門鎖通知中提到的人名 #}
@@ -34,7 +52,7 @@
             {% set extracted = door_notif.split('用戶：')[1].split(' ')[0] | trim %}
             {% if extracted not in names.list and extracted != '-' %}{% set names.list = names.list + [extracted] %}{% endif %}
           {% endif %}
-          {# 第二優先：最近 5 分鐘內定位剛到家的人（補充門鎖沒抓到的同行者） #}
+          {# 第二優先：最近 3 分鐘內定位剛到家的人（補充門鎖沒抓到的同行者） #}
           {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=3) %}
             {% if 'Vincent' not in names.list %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
           {% endif %}
