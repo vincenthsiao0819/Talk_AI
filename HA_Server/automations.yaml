@@ -1,40 +1,57 @@
 - id: '1718873000002'
-  alias: "客廳廣播：門鎖觸發歡迎系統"
+  alias: "客廳廣播：全方位雷達與門鎖混合歡迎系統"
   mode: single
   trigger:
-    # 唯一觸發源：電子門鎖開門通知
     - platform: state
       entity_id: sensor.sm_x936b_vincent_pad_last_notification
+    - platform: state
+      entity_id: device_tracker.vincent_iphone
+      to: "home"
+    - platform: state
+      entity_id: device_tracker.anna_iphone
+      to: "home"
+    - platform: state
+      entity_id: device_tracker.sunny_iphone
+      to: "home"
+    - platform: state
+      entity_id: device_tracker.ray_iphone
+      to: "home"
   condition:
     - condition: template
       value_template: >-
-        {% set title = trigger.to_state.state if trigger.to_state else '' %}
-        {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
-        {{ trigger.to_state is not none and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
+        {% if trigger.entity_id == 'sensor.sm_x936b_vincent_pad_last_notification' %}
+          {% set title = trigger.to_state.state if trigger.to_state else '' %}
+          {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
+          {{ trigger.to_state is not none and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
+        {% else %}
+          true
+        {% endif %}
   action:
     - delay: "00:00:05"
     - variables:
-        # 從門鎖通知中提取開門的人名
         door_notif: >-
-          {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
+          {% if trigger.entity_id == 'sensor.sm_x936b_vincent_pad_last_notification' %}
+            {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
+          {% else %}
+            ""
+          {% endif %}
         welcome_names: >-
           {% set names = namespace(list=[]) %}
-          {# 第一優先：門鎖通知中提到的人名 #}
-          {% if 'Vincent' in door_notif %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
-          {% if 'Anna' in door_notif %}{% set names.list = names.list + ['Anna'] %}{% endif %}
-          {% if 'Sunny' in door_notif or '千晴' in door_notif %}{% set names.list = names.list + ['千晴'] %}{% endif %}
-          {% if 'Ray' in door_notif %}{% set names.list = names.list + ['Ray'] %}{% endif %}
-          {% if '阿公' in door_notif %}{% set names.list = names.list + ['阿公'] %}{% endif %}
-          {% if '叔叔' in door_notif %}{% set names.list = names.list + ['叔叔'] %}{% endif %}
-          {% if '阿嬤' in door_notif %}{% set names.list = names.list + ['阿嬤'] %}{% endif %}
-          {% if '爺爺' in door_notif %}{% set names.list = names.list + ['爺爺'] %}{% endif %}
-          {% if '奶奶' in door_notif %}{% set names.list = names.list + ['奶奶'] %}{% endif %}
-          {# 第三優先：如果以上都沒中，且有「用戶：」，動態擷取名字 (例如阿公、阿嬤、打掃阿姨等) #}
-          {% if '用戶：' in door_notif %}
-            {% set extracted = door_notif.split('用戶：')[1].split(' ')[0] | trim %}
-            {% if extracted not in names.list and extracted != '-' %}{% set names.list = names.list + [extracted] %}{% endif %}
+          {% if trigger.entity_id == 'sensor.sm_x936b_vincent_pad_last_notification' %}
+            {% if 'Vincent' in door_notif %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
+            {% if 'Anna' in door_notif %}{% set names.list = names.list + ['Anna'] %}{% endif %}
+            {% if 'Sunny' in door_notif or '千晴' in door_notif %}{% set names.list = names.list + ['千晴'] %}{% endif %}
+            {% if 'Ray' in door_notif %}{% set names.list = names.list + ['Ray'] %}{% endif %}
+            {% if '阿公' in door_notif %}{% set names.list = names.list + ['阿公'] %}{% endif %}
+            {% if '叔叔' in door_notif %}{% set names.list = names.list + ['叔叔'] %}{% endif %}
+            {% if '阿嬤' in door_notif %}{% set names.list = names.list + ['阿嬤'] %}{% endif %}
+            {% if '爺爺' in door_notif %}{% set names.list = names.list + ['爺爺'] %}{% endif %}
+            {% if '奶奶' in door_notif %}{% set names.list = names.list + ['奶奶'] %}{% endif %}
+            {% if '用戶：' in door_notif %}
+              {% set extracted = door_notif.split('用戶：')[1].split(' ')[0] | trim %}
+              {% if extracted not in names.list and extracted != '-' %}{% set names.list = names.list + [extracted] %}{% endif %}
+            {% endif %}
           {% endif %}
-          {# 第二優先：最近 5 分鐘內定位剛到家的人（補充門鎖沒抓到的同行者） #}
           {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=3) %}
             {% if 'Vincent' not in names.list %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
           {% endif %}
@@ -62,8 +79,7 @@
           {% if is_state('device_tracker.iphone', 'home') and now() - states.device_tracker.iphone.last_changed < timedelta(minutes=3) %}
             {% if '奶奶' not in names.list %}{% set names.list = names.list + ['奶奶'] %}{% endif %}
           {% endif %}
-          {# 親愛的永遠排在最後 #}
-          {% if '親愛的' in door_notif and '親愛的' not in names.list %}{% set names.list = names.list + ['親愛的'] %}{% endif %}
+          {% if door_notif != "" and '親愛的' in door_notif and '親愛的' not in names.list %}{% set names.list = names.list + ['親愛的'] %}{% endif %}
           {{ names.list | join('、') }}
     - condition: template
       value_template: "{{ welcome_names | length > 0 }}"
