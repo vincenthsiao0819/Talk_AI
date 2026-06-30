@@ -134,6 +134,7 @@ def ask_hermes(status_report):
 Review the following system status report. The ecosystem consists of:
 - GPU Server (192.168.50.154): Runs Docker Desktop and Home Assistant (HA) container.
 - MagicMirror & AI Talk (192.168.50.204): Runs MagicMirror UI (8080) and Welcome API (8081).
+- Samsung Tablet (192.168.50.156): Runs MacroDroid to intercept door lock notifications and POST to HA webhook. Ping OFFLINE alone is NOT an anomaly (tablet Wi-Fi may sleep but MacroDroid still works internally). Only flag anomaly if BOTH tablet is OFFLINE AND HA Welcome Automation is STALE (>24h).
 
 Status Report:
 {status_report}
