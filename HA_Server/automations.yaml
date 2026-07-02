@@ -36,6 +36,8 @@
           {% else %}
             {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
           {% endif %}
+    - delay: "00:00:30"
+    - variables:
         welcome_names: >-
           {% set names = namespace(list=[]) %}
           {# 第一優先：門鎖通知中提到的人名 #}
@@ -88,7 +90,6 @@
       data:
         title: "Webhook Debug"
         message: "Parsed Names: {{ welcome_names }} | Raw: {{ door_notif }}"
-    - delay: "00:00:05"
     - condition: template
       value_template: "{{ welcome_names | length > 0 }}"
     - service: rest_command.welcome_api
