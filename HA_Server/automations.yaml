@@ -27,8 +27,12 @@
     - variables:
         # 從門鎖通知中提取開門的人名
         door_notif: >-
+          {% set webhook_text = '' %}
           {% if trigger.id == 'macrodroid_webhook' %}
-            {% if trigger.json is defined and trigger.json %}{{ trigger.json.get('text', '') }}{% elif trigger.data is defined and trigger.data %}{{ trigger.data.get('text', '') }}{% else %}{% endif %}
+            {% if trigger.json is defined and trigger.json %}{% set webhook_text = trigger.json.get('text', '') %}{% elif trigger.data is defined and trigger.data %}{% set webhook_text = trigger.data.get('text', '') %}{% endif %}
+          {% endif %}
+          {% if webhook_text | trim != '' %}
+            {{ webhook_text }}
           {% else %}
             {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
           {% endif %}
