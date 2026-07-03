@@ -392,9 +392,14 @@ def main():
         log("HA Welcome Automation heartbeat is OK.")
 
     if alerts:
+        # Determine if we actually did a git restore
+        did_restore = any("還原回 GitHub 乾淨版本" in a for a in alerts) or any("還原" in a for a in alerts)
+
+        msg = "\n".join(alerts)
+        if did_restore:
+            msg += "\n\n✅ 已根據 GitHub 乾淨版本完成自動還原！"
 
         # Send Telegram alert
-        msg = "\n".join(alerts) + "\n\n✅ 已根據 GitHub 乾淨版本完成自動還原！"
         subprocess.run(["openclaw", "message", "send", "--channel", "telegram", "--target", "5916594299", "--message", msg])
     else:
         log("All systems normal.")
