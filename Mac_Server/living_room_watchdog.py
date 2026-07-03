@@ -60,13 +60,13 @@ def recover_tunnel():
 def recover_api():
     log("Recovering Welcome API from GitHub baseline...")
     # 1. Pull latest from GitHub
-    subprocess.run(["git", "pull"], cwd="/Users/vincenthsiao/.openclaw/workspace/HA_Welcome_home_Display_Sound", check=True)
+    subprocess.run(["git", "pull"], cwd="/Users/vincenthsiao/.openclaw/workspace/Talk_AI", check=True)
     
     # 2. Kill existing node processes
     subprocess.run(SSH_CMD + ["wmic process where \"CommandLine LIKE '%server.js%'\" call terminate"], capture_output=True)
     
     # 3. Read clean baseline
-    with open("/Users/vincenthsiao/.openclaw/workspace/HA_Welcome_home_Display_Sound/server.js", "rb") as f:
+    with open("/Users/vincenthsiao/.openclaw/workspace/Talk_AI/POS_Client/server.js", "rb") as f:
         content = f.read()
     b64_content = base64.b64encode(content).decode('utf-8')
     
@@ -125,7 +125,7 @@ def recover_ha_automations():
 
 def recover_welcome_api_integrity():
     log("Reverting Welcome API to GitHub baseline...")
-    subprocess.run(["git", "restore", "server.js"], cwd="/Users/vincenthsiao/.openclaw/workspace/HA_Welcome_home_Display_Sound", check=True)
+    subprocess.run(["git", "restore", "POS_Client/server.js"], cwd="/Users/vincenthsiao/.openclaw/workspace/Talk_AI", check=True)
     recover_api()
 
 
@@ -334,7 +334,7 @@ def main():
         log("HA Automations integrity is OK.")
 
     # Check 6: Welcome API Source Integrity
-    welcome_api_status = subprocess.run(["git", "status", "--porcelain", "server.js"], cwd="/Users/vincenthsiao/.openclaw/workspace/HA_Welcome_home_Display_Sound", capture_output=True, text=True)
+    welcome_api_status = subprocess.run(["git", "status", "--porcelain", "POS_Client/server.js"], cwd="/Users/vincenthsiao/.openclaw/workspace/Talk_AI", capture_output=True, text=True)
     if "M " in welcome_api_status.stdout or " M" in welcome_api_status.stdout:
         alerts.append("⚠️ 偵測到 Welcome API (server.js) 有未經授權的修改！正在還原回 GitHub 乾淨版本並重啟...")
         recover_welcome_api_integrity()
