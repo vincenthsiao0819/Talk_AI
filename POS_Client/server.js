@@ -20,67 +20,79 @@ try {
     console.error("Failed to load msedge-tts module:", e);
 }
 
-const lastWelcomeTimes = new Map();
-let pendingNames = new Set();
+const pendingNames = new Set();
 let batchTimer = null;
-const BATCH_WINDOW_MS = 500; // 0.5 second batch window
-const DEBOUNCE_MS = 300000; // 5 minutes debounce per person
+const BATCH_WINDOW_MS = 500; 
 
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
-    
-    if (parsedUrl.pathname === '/welcome' || parsedUrl.pathname === '/speak') {
-        let text = "家人";
-        if (req.method === 'GET') {
-            text = parsedUrl.query.name || parsedUrl.query.text || "家人";
-            handleRequest(text, res, parsedUrl.pathname === '/welcome');
-        } else if (req.method === 'POST') {
-            let body = '';
-            req.on('data', chunk => { body += chunk.toString(); });
-            req.on('end', () => {
-                try {
-                    const data = JSON.parse(body);
-                    let text = data.name || data.text || "家人";
-                    let userText = data.userText || null;
-                    handleRequest(text, res, parsedUrl.pathname === '/welcome', userText);
-                } catch(e) {}
-            });
+    let pathname = parsedUrl.pathname;
+    let queryText = parsedUrl.query.text;
+
+    if (req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk.toString());
+        req.on('end', () => {
+            if (pathname === '/speak' || pathname === '/welcome') {
+                handleRequest(pathname === '/welcome', body.trim(), res, parsedUrl.query.user_text);
+            } else {
+                res.writeHead(404);
+                res.end('Not Found');
+            }
+        });
+    } else if (req.method === 'GET') {
+        if (pathname === '/speak' || pathname === '/welcome') {
+            handleRequest(pathname === '/welcome', queryText || "", res, parsedUrl.query.user_text);
+        } else if (pathname === '/') {
+            res.writeHead(404);
+            res.end();
+        } else {
+            res.writeHead(404);
+            res.end('Not Found');
         }
-    } else {
-        res.writeHead(404);
-        res.end();
     }
 });
 
-function handleRequest(text, res, isWelcome, userText = null) {
-    let safeText = text.replace(/['"`$]/g, "").replace(/\(.*?\)/g, "").trim();
+function handleRequest(isWelcome, text, res, userText) {
+    if (!text) {
+        res.writeHead(400);
+        res.end(JSON.stringify({status: "error", message: "text required"}));
+        return;
+    }
+
+    let safeText = text.replace(/"/g, '\\"');
     
     if (isWelcome) {
-        console.log(`\n[${new Date().toISOString()}] [HA Request] 收到開門推播請求: ${safeText}`);
+        console.log(`\n[${new Date().toISOString()}] [HA Request] 收到歡迎廣播請求: ${safeText}`);
         const now = Date.now();
-        const incomingNames = safeText.split(/[\s、]+/);
-        const newNames = [];
+        const incomingNames = safeText.split(/[、\s和,]+/);
         
+        let newNames = [];
         for (const name of incomingNames) {
             if (!name) continue;
-            const lastTime = lastWelcomeTimes.get(name) || 0;
-            if (now - lastTime >= DEBOUNCE_MS) {
-                newNames.push(name);
-                lastWelcomeTimes.set(name, now);
-            }
+            // Ignore completely duplicate broadcasts within 5 seconds (debouncing)
+            let cachePath = path.join("C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\", `debounce_${Buffer.from(name).toString('hex')}.tmp`);
+            try {
+                if (fs.existsSync(cachePath)) {
+                    let stats = fs.statSync(cachePath);
+                    if (now - stats.mtimeMs < 5000) {
+                        console.log(`[${new Date().toISOString()}] [Debounce] 忽略重複請求 (5秒內): ${name}`);
+                        continue;
+                    }
+                }
+                fs.writeFileSync(cachePath, now.toString());
+            } catch(e) {}
+            
+            newNames.push(name);
+            pendingNames.add(name);
         }
         
         if (newNames.length === 0) {
-            console.log(`[${new Date().toISOString()}] [Debounce] 忽略重複請求 (5分鐘防呆): ${safeText}`);
             res.writeHead(200);
             res.end(JSON.stringify({status: "ignored", message: "debounced"}));
             return;
         }
-        
-        for (const name of newNames) {
-            pendingNames.add(name);
-        }
-        
+
         res.writeHead(200);
         res.end(JSON.stringify({status: "queued", text: newNames.join("、")}));
 
@@ -92,7 +104,7 @@ function handleRequest(text, res, isWelcome, userText = null) {
                 batchTimer = null;
                 
                 const combinedNames = namesArray.join("、");
-                console.log(`[${new Date().toISOString()}] [Batching] 收集完成，最終廣播名單: ${combinedNames}`);
+                console.log(`[${new Date().toISOString()}] [Batching] 收集完成，最終名單: ${combinedNames}`);
                 executeSpeak(combinedNames, true, null);
             }, BATCH_WINDOW_MS);
         }
@@ -114,13 +126,31 @@ async function executeSpeak(safeText, isWelcome, userText) {
         await tts.setMetadata("zh-TW-HsiaoChenNeural", OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
         
         let textToSpeak = safeText;
+        let displayText = safeText;
+        
         if (isWelcome) {
+            // Process names: ensuring "親愛的" is always at the end
+            let names = safeText.split(/[、\s和,]+/);
+            let dearIndex = names.indexOf("親愛的");
+            if (dearIndex !== -1) {
+                names.splice(dearIndex, 1); // Remove from current position
+                names.push("親愛的");       // Put it at the very end
+            }
+            names = names.filter(n => n.trim() !== "");
+            let formattedNames = names.join("、");
+            
             let greetingBase64 = "5q2h6L+O5Zue5a62"; // "歡迎回家"
             let greeting = Buffer.from(greetingBase64, 'base64').toString('utf8');
-            textToSpeak = safeText + "，" + greeting; // 用逗號停頓會比較自然
+            
+            textToSpeak = formattedNames + "，" + greeting; 
+            displayText = formattedNames + "... " + greeting;
+        } else {
+            if (userText) {
+                displayText = "🗣️ You: " + userText + "\n\n🦞 Lobster: " + textToSpeak;
+            }
         }
         
-        console.log(`[${new Date().toISOString()}] [TTS] 開始向微軟產生 MP3 語音...`);
+        console.log(`[${new Date().toISOString()}] [TTS] 開始產生 MP3 語音... (語音內容: ${textToSpeak})`);
         const { audioStream } = tts.toStream(textToSpeak);
         
         const chunks = [];
@@ -131,10 +161,6 @@ async function executeSpeak(safeText, isWelcome, userText) {
             fs.writeFileSync(audioFile, Buffer.concat(chunks));
             console.log(`[${new Date().toISOString()}] [TTS] 語音檔案產生完畢: ${audioFile}`);
             
-            let displayText = isWelcome ? safeText : textToSpeak;
-            if (!isWelcome && userText) {
-                displayText = "🗣️ You: " + userText + "\n\n🦞 Lobster: " + textToSpeak;
-            }
             triggerPopup(isWelcome, displayText, audioFile);
             
             setTimeout(() => {
@@ -155,15 +181,15 @@ async function executeSpeak(safeText, isWelcome, userText) {
 }
 
 function triggerPopup(isWelcome, text, audioFile) {
-    // UTF-8 to Base64 protection
     let b64Text = Buffer.from(text, 'utf8').toString('base64');
-    
-    // NEW: Use C# FastWelcome.exe instead of PowerShell
-    let exePath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\FastWelcome.exe";
-    let cmd = `"${exePath}" "${b64Text}" "${audioFile}"`;
-    
-    // IF not welcome, maybe we still use Welcome_Chat.ps1 for Chat layout, or adapt FastWelcome
-    if (!isWelcome) {
+    let cmd = "";
+
+    if (isWelcome) {
+        // Use C# FastWelcome.exe for absolute instant UI speed + newly restored WMPlayer COM support for audio
+        let exePath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\FastWelcome.exe";
+        cmd = `"${exePath}" "${b64Text}" "${audioFile}"`;
+    } else {
+        // Fallback for Chat UI if needed
         let scriptPath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\Welcome_Chat.ps1";
         cmd = `powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "${scriptPath}" -Base64Text "${b64Text}" -AudioFile "${audioFile}"`;
     }
@@ -172,20 +198,21 @@ function triggerPopup(isWelcome, text, audioFile) {
     
     const child = exec(cmd, (error, stdout, stderr) => {
         if (error) {
-            console.error(`[${new Date().toISOString()}] [Crash] FastWelcome 異常結束 (Exit Code: ${error.code})`);
+            console.error(`[${new Date().toISOString()}] [Crash] UI 程式異常結束 (Exit Code: ${error.code})`);
             console.error(stderr);
             return;
         }
-        console.log(`[${new Date().toISOString()}] [Finish] FastWelcome 正常結束 (Exit Code: 0)`);
+        console.log(`[${new Date().toISOString()}] [Finish] UI 程式正常結束 (Exit Code: 0)`);
     });
-    
-    // Listen to stdout from FastWelcome.exe
-    child.stdout.on('data', (data) => {
-        const lines = data.toString().split('\n');
-        lines.forEach(line => {
-            if (line.trim()) console.log(`[FastWelcome] ${line.trim()}`);
+
+    if (isWelcome) {
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n');
+            lines.forEach(line => {
+                if (line.trim()) console.log(`[FastWelcome] ${line.trim()}`);
+            });
         });
-    });
+    }
 }
 
 // Cleanup old files on startup
@@ -194,11 +221,11 @@ try {
     const files = fs.readdirSync(dir);
     for (const file of files) {
         if (file.startsWith("current_welcome_") && file.endsWith(".mp3")) {
-            try { fs.unlinkSync(path.join(dir, file)); } catch(e) {}
+            fs.unlinkSync(path.join(dir, file));
         }
     }
 } catch(e) {}
 
-server.listen(8081, '0.0.0.0', () => {
-    console.log(`[${new Date().toISOString()}] [System] FastWelcome API (v2) listening on port 8081. Powered by EdgeTTS & C# Native Executable.`);
+server.listen(8081, () => {
+    console.log(`[${new Date().toISOString()}] [System] FastWelcome API (v2.1) listening on port 8081. Powered by EdgeTTS & C# (WMPlayer Native).`);
 });

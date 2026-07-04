@@ -1,6 +1,6 @@
 using System;
 using System.Drawing;
-using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -9,9 +9,6 @@ namespace FastWelcome
 {
     static class Program
     {
-        [DllImport("winmm.dll")]
-        private static extern long mciSendString(string command, StringBuilder buffer, int bufferSize, IntPtr hwndCallback);
-
         static void Main(string[] args)
         {
             // 防撞鎖 (Mutex) - 確保同一時間只有一個歡迎畫面
@@ -41,7 +38,7 @@ namespace FastWelcome
                 }
                 catch
                 {
-                    decodedText = "家人 歡迎回家";
+                    decodedText = "家人... 歡迎回家";
                 }
 
                 Application.EnableVisualStyles();
@@ -58,9 +55,9 @@ namespace FastWelcome
         private string audioFile;
         private System.Windows.Forms.Timer safetyTimer;
         private System.Windows.Forms.Timer pollTimer;
-
-        [DllImport("winmm.dll")]
-        private static extern long mciSendString(string command, StringBuilder buffer, int bufferSize, IntPtr hwndCallback);
+        
+        private object wmp;
+        private bool startedPlaying = false;
 
         public WelcomeForm(string text, string audioPath)
         {
@@ -100,7 +97,6 @@ namespace FastWelcome
         private void SafetyTimeout(object sender, EventArgs e)
         {
             Console.WriteLine("[FastWelcome] Safety timeout reached (25s). Force exiting.");
-            CleanupAudio();
             Environment.Exit(9);
         }
 
@@ -110,20 +106,52 @@ namespace FastWelcome
             
             if (System.IO.File.Exists(audioFile))
             {
-                Console.WriteLine("[FastWelcome] Playing audio: " + audioFile);
-                string cmd = string.Format("open \"{0}\" type mpegvideo alias myaudio", audioFile);
-                mciSendString(cmd, null, 0, IntPtr.Zero);
-                mciSendString("play myaudio", null, 0, IntPtr.Zero);
-                pollTimer.Start();
+                Console.WriteLine("[FastWelcome] Playing audio via WMPlayer.OCX: " + audioFile);
+                try
+                {
+                    Type wmpType = Type.GetTypeFromProgID("WMPlayer.OCX");
+                    if (wmpType != null)
+                    {
+                        wmp = Activator.CreateInstance(wmpType);
+                        
+                        // wmp.settings.volume = 100
+                        object settings = wmpType.InvokeMember("settings", BindingFlags.GetProperty, null, wmp, null);
+                        settings.GetType().InvokeMember("volume", BindingFlags.SetProperty, null, settings, new object[] { 100 });
+                        
+                        // wmp.URL = audioFile
+                        wmpType.InvokeMember("URL", BindingFlags.SetProperty, null, wmp, new object[] { audioFile });
+                        
+                        // wmp.controls.play()
+                        object controls = wmpType.InvokeMember("controls", BindingFlags.GetProperty, null, wmp, null);
+                        controls.GetType().InvokeMember("play", BindingFlags.InvokeMethod, null, controls, null);
+                        
+                        pollTimer.Start();
+                    }
+                    else
+                    {
+                        Console.WriteLine("[FastWelcome] WMPlayer.OCX not found. Closing in 4s.");
+                        FallbackClose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("[FastWelcome] COM Error: " + ex.Message);
+                    FallbackClose();
+                }
             }
             else
             {
                 Console.WriteLine("[FastWelcome] Audio file not found. Waiting 5s then closing.");
-                System.Windows.Forms.Timer fallbackTimer = new System.Windows.Forms.Timer();
-                fallbackTimer.Interval = 5000;
-                fallbackTimer.Tick += new EventHandler(CloseFormTimer);
-                fallbackTimer.Start();
+                FallbackClose();
             }
+        }
+        
+        private void FallbackClose()
+        {
+            System.Windows.Forms.Timer fallbackTimer = new System.Windows.Forms.Timer();
+            fallbackTimer.Interval = 4000;
+            fallbackTimer.Tick += new EventHandler(CloseFormTimer);
+            fallbackTimer.Start();
         }
 
         private void CloseFormTimer(object sender, EventArgs e)
@@ -133,35 +161,30 @@ namespace FastWelcome
 
         private void CheckAudioStatus(object sender, EventArgs e)
         {
-            StringBuilder sb = new StringBuilder(128);
-            mciSendString("status myaudio mode", sb, 128, IntPtr.Zero);
-            
-            if (sb.ToString().Trim().ToLower() != "playing")
+            if (wmp != null)
             {
-                pollTimer.Stop();
-                Console.WriteLine("[FastWelcome] Audio finished. Waiting 3s to close UI...");
-                
-                System.Windows.Forms.Timer closeTimer = new System.Windows.Forms.Timer();
-                closeTimer.Interval = 3000;
-                closeTimer.Tick += new EventHandler(CloseFormTimer);
-                closeTimer.Start();
+                try
+                {
+                    int playState = (int)wmp.GetType().InvokeMember("playState", BindingFlags.GetProperty, null, wmp, null);
+                    // 3 = Playing, 1 = Stopped
+                    if (playState == 3)
+                    {
+                        startedPlaying = true;
+                    }
+                    else if (startedPlaying && playState == 1)
+                    {
+                        pollTimer.Stop();
+                        Console.WriteLine("[FastWelcome] Audio finished. Closing UI.");
+                        this.Close();
+                    }
+                }
+                catch {}
             }
-        }
-
-        private void CleanupAudio()
-        {
-            try
-            {
-                mciSendString("stop myaudio", null, 0, IntPtr.Zero);
-                mciSendString("close myaudio", null, 0, IntPtr.Zero);
-            }
-            catch {}
         }
 
         private void OnFormClosed(object sender, FormClosedEventArgs e)
         {
             Console.WriteLine("[FastWelcome] Form closed successfully.");
-            CleanupAudio();
             Environment.Exit(0);
         }
     }
