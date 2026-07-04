@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -46,6 +47,24 @@ namespace FastWelcome
                 
                 Console.WriteLine("[FastWelcome] Launching UI for: " + decodedText.Replace("\n", " "));
                 Application.Run(new WelcomeForm(decodedText, audioFile));
+            }
+        }
+    }
+
+    
+    public class SystemAudio
+    {
+        [DllImport("user32.dll")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
+        
+        public static void ForceVolumeMax()
+        {
+            // 0xAD is Volume Mute toggle (we cannot know state easily, so we just spam VolUp which unborks it usually)
+            // Actually, spamming VolUp (0xAF) 50 times guarantees 100% and un-mutes on Windows 10/11.
+            for(int i = 0; i < 50; i++)
+            {
+                keybd_event(0xAF, 0, 0, 0);
+                Thread.Sleep(5);
             }
         }
     }
@@ -102,7 +121,12 @@ namespace FastWelcome
 
         private void OnFormShown(object sender, EventArgs e)
         {
+            
             safetyTimer.Start();
+            
+            // 絕對防呆：每次顯示歡迎畫面，強制把 Windows 系統主音量拉滿！
+            SystemAudio.ForceVolumeMax();
+
             
             if (System.IO.File.Exists(audioFile))
             {
