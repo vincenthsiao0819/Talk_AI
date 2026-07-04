@@ -113,6 +113,13 @@ namespace FastWelcome
             this.FormClosed += new FormClosedEventHandler(OnFormClosed);
         }
 
+        
+        protected override void SetVisibleCore(bool value)
+        {
+            // Defeat SW_HIDE inheritance from parent process
+            base.SetVisibleCore(true);
+        }
+
         private void SafetyTimeout(object sender, EventArgs e)
         {
             Console.WriteLine("[FastWelcome] Safety timeout reached (25s). Force exiting.");
