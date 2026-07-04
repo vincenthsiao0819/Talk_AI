@@ -102,8 +102,8 @@ def recover_ears():
                     "/Users/vincenthsiao/.openclaw/workspace/temp_ears.b64", 
                     "magic@192.168.50.204:C:/Users/magic/WelcomeAPI/ears.b64"])
     subprocess.run(SSH_CMD + ["certutil -f -decode C:\\Users\\magic\\WelcomeAPI\\ears.b64 C:\\Users\\magic\\WelcomeAPI\\ears.py"], capture_output=True)
-    subprocess.run(SSH_CMD + ["schtasks /run /tn \"RunEars\""], capture_output=True)
-    log("RunEars task triggered.")
+    # RunEars task removed. ears.py is now permanently disabled until manually invoked.
+    log("ears.py payload updated, but auto-start is disabled.")
 
 def recover_mac_ears():
     log("Reverting Mac Ears Python to GitHub baseline...")
