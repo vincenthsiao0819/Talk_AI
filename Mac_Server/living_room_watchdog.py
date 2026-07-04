@@ -188,8 +188,9 @@ def check_zombie_powershell():
 def check_magicmirror():
     try:
         # Liveness Probe: ping local web server
-        res = subprocess.run(SSH_CMD + ["powershell", "-Command", "(Invoke-WebRequest -Uri http://localhost:8080/ -UseBasicParsing -TimeoutSec 5).StatusCode"], capture_output=True, text=True, timeout=15)
-        if "200" in res.stdout:
+        res = subprocess.run(SSH_CMD + ["powershell", "-Command", "(Invoke-WebRequest -Uri http://localhost:8080/ -UseBasicParsing -TimeoutSec 5).StatusCode"], capture_output=True, timeout=15)
+        stdout_text = res.stdout.decode('utf-8', errors='ignore')
+        if "200" in stdout_text:
             return True
         else:
             return False
@@ -290,7 +291,8 @@ def main():
     if os.path.exists(MUTE_FLAG_PATH):
         log("維護模式 (mute.flag) 已開啟，跳過 Ears 語音程式檢查。")
     else:
-        python_check = subprocess.run(SSH_CMD + ["tasklist | findstr python"], capture_output=True, text=True)
+        python_check_raw = subprocess.run(SSH_CMD + ["tasklist | findstr python"], capture_output=True)
+    python_check_text = python_check_raw.stdout.decode('utf-8', errors='ignore')
         if "python.exe" not in python_check.stdout:
             alerts.append("⚠️ Ears 語音程式 (Python) 崩潰，正在從 GitHub 基準還原並注入金鑰...")
             recover_ears()
