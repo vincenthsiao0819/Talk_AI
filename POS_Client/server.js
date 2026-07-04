@@ -34,7 +34,18 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             if (pathname === '/speak' || pathname === '/welcome') {
-                handleRequest(pathname === '/welcome', body.trim(), res, parsedUrl.query.user_text);
+                
+                let parsedText = body.trim();
+                try {
+                    const jsonObj = JSON.parse(parsedText);
+                    if (jsonObj && jsonObj.name) {
+                        parsedText = jsonObj.name;
+                    } else if (jsonObj && jsonObj.text) {
+                        parsedText = jsonObj.text;
+                    }
+                } catch(e) {}
+                handleRequest(pathname === '/welcome', parsedText, res, parsedUrl.query.user_text);
+
             } else {
                 res.writeHead(404);
                 res.end('Not Found');
