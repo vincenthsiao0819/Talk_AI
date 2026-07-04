@@ -288,17 +288,7 @@ def main():
         log("Home Assistant Server is OK.")
 
     # Check 2: Ears Process
-    if os.path.exists(MUTE_FLAG_PATH):
-        log("維護模式 (mute.flag) 已開啟，跳過 Ears 語音程式檢查。")
-    else:
-        python_check_raw = subprocess.run(SSH_CMD + ["tasklist | findstr python"], capture_output=True)
-    python_check_text = python_check_raw.stdout.decode('utf-8', errors='ignore')
-        if "python.exe" not in python_check.stdout:
-            alerts.append("⚠️ Ears 語音程式 (Python) 崩潰，正在從 GitHub 基準還原並注入金鑰...")
-            recover_ears()
-        else:
-            log("Ears Python process is OK.")
-
+    # Permanently disabled per owner request. Mac Watchdog no longer manages ears.py.
     # Check 3: Tunnel
     if not check_tunnel():
         alerts.append("⚠️ SSH 逆向隧道斷線，正在重新啟動...")
