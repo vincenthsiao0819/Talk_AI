@@ -55,31 +55,31 @@
             {% if extracted not in names.list and extracted != '-' %}{% set names.list = names.list + [extracted] %}{% endif %}
           {% endif %}
           {# 第二優先：最近 3 分鐘內定位剛到家的人（補充門鎖沒抓到的同行者） #}
-          {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.vincent_iphone', 'home') and now() - states.device_tracker.vincent_iphone.last_changed < timedelta(minutes=5) %}
             {% if 'Vincent' not in names.list %}{% set names.list = names.list + ['Vincent'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.anna_iphone', 'home') and now() - states.device_tracker.anna_iphone.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.anna_iphone', 'home') and now() - states.device_tracker.anna_iphone.last_changed < timedelta(minutes=5) %}
             {% if 'Anna' not in names.list %}{% set names.list = names.list + ['Anna'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.sunny_iphone', 'home') and now() - states.device_tracker.sunny_iphone.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.sunny_iphone', 'home') and now() - states.device_tracker.sunny_iphone.last_changed < timedelta(minutes=5) %}
             {% if '千晴' not in names.list %}{% set names.list = names.list + ['千晴'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.ray_iphone', 'home') and now() - states.device_tracker.ray_iphone.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.ray_iphone', 'home') and now() - states.device_tracker.ray_iphone.last_changed < timedelta(minutes=5) %}
             {% if 'Ray' not in names.list %}{% set names.list = names.list + ['Ray'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.oppo_find_x5_pro', 'home') and now() - states.device_tracker.oppo_find_x5_pro.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.oppo_find_x5_pro', 'home') and now() - states.device_tracker.oppo_find_x5_pro.last_changed < timedelta(minutes=5) %}
             {% if '阿公' not in names.list %}{% set names.list = names.list + ['阿公'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.iphone_4', 'home') and now() - states.device_tracker.iphone_4.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.iphone_4', 'home') and now() - states.device_tracker.iphone_4.last_changed < timedelta(minutes=5) %}
             {% if '叔叔' not in names.list %}{% set names.list = names.list + ['叔叔'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.iphone_3', 'home') and now() - states.device_tracker.iphone_3.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.iphone_3', 'home') and now() - states.device_tracker.iphone_3.last_changed < timedelta(minutes=5) %}
             {% if '阿嬤' not in names.list %}{% set names.list = names.list + ['阿嬤'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.iphone_2', 'home') and now() - states.device_tracker.iphone_2.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.iphone_2', 'home') and now() - states.device_tracker.iphone_2.last_changed < timedelta(minutes=5) %}
             {% if '爺爺' not in names.list %}{% set names.list = names.list + ['爺爺'] %}{% endif %}
           {% endif %}
-          {% if is_state('device_tracker.iphone', 'home') and now() - states.device_tracker.iphone.last_changed < timedelta(minutes=3) %}
+          {% if is_state('device_tracker.iphone', 'home') and now() - states.device_tracker.iphone.last_changed < timedelta(minutes=5) %}
             {% if '奶奶' not in names.list %}{% set names.list = names.list + ['奶奶'] %}{% endif %}
           {% endif %}
           {# 親愛的永遠排在最後 #}
