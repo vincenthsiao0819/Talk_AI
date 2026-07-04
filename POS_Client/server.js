@@ -197,8 +197,9 @@ function triggerPopup(isWelcome, text, audioFile) {
 
     if (isWelcome) {
         // Use C# FastWelcome.exe for absolute instant UI speed + newly restored WMPlayer COM support for audio
-        let exePath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\FastWelcome.exe";
-        cmd = `"${exePath}" "${b64Text}" "${audioFile}"`;
+        let exePath = "C:\\Users\\magic\\WelcomeAPI\\FastWelcome.exe";
+        // 破除隱形詛咒：使用 PowerShell Start-Process 脫離 Node.js 的隱藏執行緒樹，並加上 -Wait 確保語音播完才刪除 MP3
+        cmd = `powershell -WindowStyle Hidden -Command "Start-Process -FilePath '${exePath}' -ArgumentList '${b64Text}', '${audioFile}' -Wait"`;
     } else {
         // Fallback for Chat UI if needed
         let scriptPath = "C:\\\\Users\\\\magic\\\\WelcomeAPI\\\\Welcome_Chat.ps1";
