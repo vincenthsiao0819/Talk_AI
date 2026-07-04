@@ -1,6 +1,6 @@
 - id: '1718873000002'
   alias: "客廳廣播：門鎖觸發歡迎系統"
-  mode: single
+  mode: restart
   trigger:
     # 主力：MacroDroid 從平板內部攔截推播，瞬間送達 (零延遲)
     - id: macrodroid_webhook
@@ -21,9 +21,10 @@
         {% else %}
           {% set title = trigger.to_state.state if trigger.to_state else '' %}
           {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
-          {{ trigger.to_state is not none and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
+          {{ trigger.to_state is not none and 'ADB_HEARTBEAT' not in (title ~ text) and ('com.shyh_yih.household' in (title ~ text) or '用戶：' in (title ~ text) or 'Vincent' in (title ~ text) or 'Anna' in (title ~ text) or 'Sunny' in (title ~ text) or '千晴' in (title ~ text) or '親愛的' in (title ~ text) or 'Ray' in (title ~ text) or '阿公' in (title ~ text) or '叔叔' in (title ~ text) or '阿嬤' in (title ~ text) or '爺爺' in (title ~ text) or '奶奶' in (title ~ text)) }}
         {% endif %}
   action:
+    - delay: "00:00:30"
     - variables:
         # 從門鎖通知中提取開門的人名
         door_notif: >-
@@ -36,8 +37,6 @@
           {% else %}
             {{ states('sensor.sm_x936b_vincent_pad_last_notification') ~ states.sensor.sm_x936b_vincent_pad_last_notification.attributes.get('android.text', '') }}
           {% endif %}
-    - delay: "00:00:30"
-    - variables:
         welcome_names: >-
           {% set names = namespace(list=[]) %}
           {# 第一優先：門鎖通知中提到的人名 #}
