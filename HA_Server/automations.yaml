@@ -29,7 +29,13 @@
         door_notif: >-
           {% set webhook_text = '' %}
           {% if trigger.id == 'macrodroid_webhook' %}
-            {% if trigger.json is defined and trigger.json %}{% set webhook_text = trigger.json.get('text', '') %}{% elif trigger.data is defined and trigger.data %}{% set webhook_text = trigger.data.get('text', '') %}{% endif %}
+            {% if trigger.query is defined and trigger.query and 'text' in trigger.query %}
+              {% set webhook_text = trigger.query.get('text', '') %}
+            {% elif trigger.json is defined and trigger.json %}
+              {% set webhook_text = trigger.json.get('text', '') %}
+            {% elif trigger.data is defined and trigger.data %}
+              {% set webhook_text = trigger.data.get('text', '') %}
+            {% endif %}
           {% endif %}
           {% if webhook_text | trim != '' %}
             {{ webhook_text }}
