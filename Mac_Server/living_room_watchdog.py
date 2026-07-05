@@ -224,12 +224,25 @@ def recover_ha_server():
     subprocess.run(SSH_154_CMD + ["docker restart homeassistant"], capture_output=True)
 
 def check_tablet_online():
-    """Ping Samsung tablet (192.168.50.156) to verify it's on the network."""
+    """Ping Samsung tablet (192.168.50.156) to verify it's on the network.
+    Fallback to ADB check since USB is plugged in and Doze mode drops ICMP pings."""
     try:
-        res = subprocess.run(["ping", "-c", "2", "-W", "3", "192.168.50.156"], capture_output=True, timeout=10)
-        return res.returncode == 0
+        # Check Ping first by bouncing through 154
+        res = subprocess.run(SSH_154_CMD + ["ping", "-n", "2", "-w", "3000", "192.168.50.156"], capture_output=True, timeout=15)
+        if res.returncode == 0:
+            return True
+            
+        # If ping fails (tablet is dozing), check ADB connection as fallback
+        adb_cmd = SSH_154_CMD + ["powershell", "-Command", "cd \"C:\\Users\\Vincent Hsiao\\OneDrive\\Desktop\\scrcpy-win64-v4.0\"; .\\adb.exe devices"]
+        adb_res = subprocess.run(adb_cmd, capture_output=True, text=True, timeout=15)
+        if "device" in adb_res.stdout and "List of devices attached" in adb_res.stdout:
+            lines = adb_res.stdout.strip().split('\n')
+            for line in lines[1:]:
+                if "device" in line and "offline" not in line:
+                    return True
+        return False
     except Exception as e:
-        log(f"Tablet Ping Error: {e}")
+        log(f"Tablet Ping/ADB Error: {e}")
         return False
 
 def check_ha_welcome_heartbeat():
