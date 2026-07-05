@@ -226,7 +226,8 @@ def recover_ha_server():
 def check_tablet_online():
     """Ping Samsung tablet (192.168.50.156) to verify it's on the network."""
     try:
-        res = subprocess.run(["ping", "-c", "2", "-W", "3", "192.168.50.156"], capture_output=True, timeout=10)
+        # Use Windows 154 to ping since Android might block cross-subnet ICMP from Mac (192.168.64.x)
+        res = subprocess.run(SSH_154_CMD + ["ping", "-n", "2", "-w", "3000", "192.168.50.156"], capture_output=True, timeout=15)
         return res.returncode == 0
     except Exception as e:
         log(f"Tablet Ping Error: {e}")
