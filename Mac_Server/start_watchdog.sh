@@ -17,9 +17,9 @@ pgrep -f "hermes_watchdog.py" && echo "Warning: Hermes survived!"
 pgrep -f "living_room_watchdog.py" && echo "Warning: Living Room survived!"
 
 echo "Starting new Hermes watchdog process in background..."
-nohup python3 "$HERMES_SCRIPT" > "$HERMES_LOG" 2>&1 &
+nohup python3 "$HERMES_SCRIPT" >> "$HERMES_LOG" 2>&1 &
 
 echo "Starting new Living Room watchdog process in background..."
-nohup python3 "$LIVING_SCRIPT" > "$LIVING_LOG" 2>&1 &
+nohup python3 "$LIVING_SCRIPT" >> "$LIVING_LOG" 2>&1 &
 
 echo "Watchdogs started successfully."
