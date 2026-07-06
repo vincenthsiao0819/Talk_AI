@@ -17,7 +17,15 @@
     - condition: template
       value_template: >-
         {% if trigger.id == 'macrodroid_webhook' %}
-          true
+          {% set text = '' %}
+          {% if trigger.query is defined and trigger.query and 'text' in trigger.query %}
+            {% set text = trigger.query.get('text', '') %}
+          {% elif trigger.json is defined and trigger.json %}
+            {% set text = trigger.json.get('text', '') %}
+          {% elif trigger.data is defined and trigger.data %}
+            {% set text = trigger.data.get('text', '') %}
+          {% endif %}
+          {{ 'com.shyh_yih.household' in text or '用戶：' in text or 'Vincent' in text or 'Anna' in text or 'Sunny' in text or '千晴' in text or '親愛的' in text or 'Ray' in text or '阿公' in text or '叔叔' in text or '阿嬤' in text or '爺爺' in text or '奶奶' in text }}
         {% else %}
           {% set title = trigger.to_state.state if trigger.to_state else '' %}
           {% set text = trigger.to_state.attributes.get('android.text', '') if trigger.to_state and trigger.to_state.attributes else '' %}
