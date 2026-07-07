@@ -61,11 +61,17 @@ def send_tts(text):
 def ask_hermes(question):
     """Ask Hermes on GPU server for quick answers (sub-second, no cloud)"""
     try:
+        system_prompt = (
+            "你是龍蝦沙拉，一個家庭語音助理。請用繁體中文在30字以內簡潔回答。\n"
+            "【絕對鐵則】：如果你被要求「查詢即時資訊(如股價/天氣/新聞)」、「控制設備(如關閉麥克風)」或「任何需要上網/執行系統指令的任務」，"
+            "因為你沒有工具權限，請你『絕對只回覆』這幾個字：[HANDOFF]\n"
+            "不要包含任何其他文字、標點符號或解釋，只要回覆 [HANDOFF] 即可。"
+        )
         payload = json.dumps({
             "model": "hermes3:8b",
-            "prompt": f"你是龍蝦沙拉，一個家庭語音助理。請用繁體中文在30字以內簡潔回答以下問題：\n{question}",
+            "prompt": f"{system_prompt}\n\n使用者問：{question}",
             "stream": False,
-            "options": {"temperature": 0.3, "num_predict": 100}
+            "options": {"temperature": 0.1, "num_predict": 100}
         }).encode('utf-8')
         req = urllib.request.Request("http://192.168.50.154:11434/api/generate", data=payload)
         req.add_header('Content-Type', 'application/json')
@@ -120,9 +126,9 @@ while True:
             # 2. 先問 Hermes (極速 GPU Local)
             reply = ask_hermes(data)
             
-            if not reply:
-                # 3. Hermes 掛了才走 Gateway (慢但聰明)
-                log("Hermes unavailable, falling back to Gateway agent...")
+            if not reply or "[HANDOFF]" in reply:
+                # 3. Hermes 無法處理 (需工具) 或掛了，交接給 OpenClaw (慢但聰明)
+                log(f"Hermes requested HANDOFF (or failed). Falling back to OpenClaw agent...")
                 reply = ask_gateway(data)
             
             elapsed = time.time() - start_time
