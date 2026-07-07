@@ -1,7 +1,6 @@
 - id: '1718873000002'
   alias: "客廳廣播：門鎖觸發歡迎系統"
-  mode: parallel
-  max: 10
+  mode: single
   trigger:
     # 主力：MacroDroid 從平板內部攔截推播，瞬間送達 (零延遲)
     - id: macrodroid_webhook
