@@ -383,7 +383,7 @@ def main():
 
     # Check 11: 平板在線狀態 (MacroDroid 前提)
     if not check_tablet_online():
-        alerts.append("⚠️ 三星平板 (192.168.50.156) 離線！MacroDroid 歡迎系統可能已失效，請檢查平板電源與 Wi-Fi。")
+        alerts.append("⚠️ 三星平板 (192.168.50.156) 離線！MacroDroid 歡迎系統可能已失效，Watchdog 經過 Ping 與 USB ADB 雙重確認皆無回應，請檢查平板電源與 Wi-Fi/傳輸線。")
     else:
         log("Samsung Tablet (192.168.50.156) is online.")
 
