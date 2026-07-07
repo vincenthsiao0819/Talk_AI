@@ -5,67 +5,66 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.IO;
 
 namespace FastWelcome
 {
-    static class Program
+    public static class Program
     {
+        public static void Log(string msg) { File.AppendAllText(@"C:\Users\magic\WelcomeAPI\fw_log.txt", DateTime.Now.ToString("HH:mm:ss.fff") + " " + msg + Environment.NewLine); }
+        
+        [STAThread]
         static void Main(string[] args)
         {
-            // 防撞鎖 (Mutex) - 確保同一時間只有一個歡迎畫面
+            Log("=== Starting FastWelcome (STAThread) ===");
             bool createdNew;
             using (Mutex mutex = new Mutex(true, "FastWelcome_Mutex", out createdNew))
             {
                 if (!createdNew)
                 {
-                    Console.WriteLine("[FastWelcome] Another instance is already running. Exiting.");
+                    Log("Mutex blocked.");
                     Environment.Exit(1);
                 }
 
                 if (args.Length < 2)
                 {
-                    Console.WriteLine("[FastWelcome] Usage: FastWelcome.exe <Base64Text> <AudioFilePath>");
+                    Log("Missing args: " + args.Length);
                     Environment.Exit(1);
                 }
 
                 string base64Text = args[0];
                 string audioFile = args[1];
                 string decodedText = "";
+                Log("Arg0: " + base64Text);
+                Log("Arg1: " + audioFile);
 
                 try
                 {
                     byte[] data = Convert.FromBase64String(base64Text);
                     decodedText = Encoding.UTF8.GetString(data);
                 }
-                catch
+                catch (Exception e)
                 {
+                    Log("Base64 error: " + e.Message);
                     decodedText = "家人... 歡迎回家";
                 }
-
+                
+                Log("Decoded text: " + decodedText);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                
-                Console.WriteLine("[FastWelcome] Launching UI for: " + decodedText.Replace("\n", " "));
                 Application.Run(new WelcomeForm(decodedText, audioFile));
             }
         }
     }
 
-    
     public class SystemAudio
     {
-        [DllImport("user32.dll")]
-        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
-        
+        [DllImport("winmm.dll")]
+        public static extern int waveOutSetVolume(IntPtr hwo, uint dwVolume);
+
         public static void ForceVolumeMax()
         {
-            // 0xAD is Volume Mute toggle (we cannot know state easily, so we just spam VolUp which unborks it usually)
-            // Actually, spamming VolUp (0xAF) 50 times guarantees 100% and un-mutes on Windows 10/11.
-            for(int i = 0; i < 50; i++)
-            {
-                keybd_event(0xAF, 0, 0, 0);
-                Thread.Sleep(5);
-            }
+            try { waveOutSetVolume(IntPtr.Zero, 0xFFFFFFFF); } catch {}
         }
     }
 
@@ -74,15 +73,12 @@ namespace FastWelcome
         private string audioFile;
         private System.Windows.Forms.Timer safetyTimer;
         private System.Windows.Forms.Timer pollTimer;
-        
         private object wmp;
         private bool startedPlaying = false;
 
         public WelcomeForm(string text, string audioPath)
         {
             this.audioFile = audioPath;
-
-            // Form Settings
             this.FormBorderStyle = FormBorderStyle.None;
             this.BackColor = Color.Black;
             this.Opacity = 0.85;
@@ -90,21 +86,18 @@ namespace FastWelcome
             this.ShowInTaskbar = false;
             this.WindowState = FormWindowState.Maximized;
 
-            // Label Settings
             Label label = new Label();
             label.Text = text;
             label.ForeColor = Color.White;
-            label.Font = new Font("Microsoft JhengHei", 120, FontStyle.Bold); // 微軟正黑體
+            label.Font = new Font("Microsoft JhengHei", 120, FontStyle.Bold);
             label.Dock = DockStyle.Fill;
             label.TextAlign = ContentAlignment.MiddleCenter;
             this.Controls.Add(label);
 
-            // Safety Timer (25 seconds absolute timeout)
             safetyTimer = new System.Windows.Forms.Timer();
             safetyTimer.Interval = 25000;
             safetyTimer.Tick += new EventHandler(SafetyTimeout);
 
-            // Polling Timer for audio status
             pollTimer = new System.Windows.Forms.Timer();
             pollTimer.Interval = 500;
             pollTimer.Tick += new EventHandler(CheckAudioStatus);
@@ -113,82 +106,68 @@ namespace FastWelcome
             this.FormClosed += new FormClosedEventHandler(OnFormClosed);
         }
 
-        
-        protected override void SetVisibleCore(bool value)
-        {
-            // Defeat SW_HIDE inheritance from parent process
-            base.SetVisibleCore(true);
-        }
+        protected override void SetVisibleCore(bool value) { base.SetVisibleCore(true); }
 
         private void SafetyTimeout(object sender, EventArgs e)
         {
-            Console.WriteLine("[FastWelcome] Safety timeout reached (25s). Force exiting.");
+            Program.Log("Safety timeout reached (25s).");
             Environment.Exit(9);
         }
 
         private void OnFormShown(object sender, EventArgs e)
         {
-            
             safetyTimer.Start();
-            
-            // 絕對防呆：每次顯示歡迎畫面，強制把 Windows 系統主音量拉滿！
             SystemAudio.ForceVolumeMax();
 
-            
+            Program.Log("Checking if audio file exists: " + audioFile);
             if (System.IO.File.Exists(audioFile))
             {
-                Console.WriteLine("[FastWelcome] Playing audio via WMPlayer.OCX: " + audioFile);
+                Program.Log("File EXISTS. Init WMPlayer.OCX");
                 try
                 {
                     Type wmpType = Type.GetTypeFromProgID("WMPlayer.OCX");
                     if (wmpType != null)
                     {
+                        Program.Log("WMPlayer COM Type found.");
                         wmp = Activator.CreateInstance(wmpType);
-                        
-                        // wmp.settings.volume = 100
+                        Program.Log("WMPlayer instance created.");
                         object settings = wmpType.InvokeMember("settings", BindingFlags.GetProperty, null, wmp, null);
                         settings.GetType().InvokeMember("volume", BindingFlags.SetProperty, null, settings, new object[] { 100 });
-                        
-                        // wmp.URL = audioFile
                         wmpType.InvokeMember("URL", BindingFlags.SetProperty, null, wmp, new object[] { audioFile });
-                        
-                        // wmp.controls.play()
                         object controls = wmpType.InvokeMember("controls", BindingFlags.GetProperty, null, wmp, null);
                         controls.GetType().InvokeMember("play", BindingFlags.InvokeMethod, null, controls, null);
-                        
+                        Program.Log("Play commanded. Starting pollTimer.");
                         pollTimer.Start();
                     }
                     else
                     {
-                        Console.WriteLine("[FastWelcome] WMPlayer.OCX not found. Closing in 4s.");
+                        Program.Log("WMPlayer.OCX Type == null.");
                         FallbackClose();
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("[FastWelcome] COM Error: " + ex.Message);
+                    Program.Log("COM Exception: " + ex.ToString());
                     FallbackClose();
                 }
             }
             else
             {
-                Console.WriteLine("[FastWelcome] Audio file not found. Waiting 5s then closing.");
+                Program.Log("File.Exists returned FALSE!");
                 FallbackClose();
             }
         }
-        
+
         private void FallbackClose()
         {
+            Program.Log("FallbackClose initiated (4s wait).");
             System.Windows.Forms.Timer fallbackTimer = new System.Windows.Forms.Timer();
             fallbackTimer.Interval = 4000;
             fallbackTimer.Tick += new EventHandler(CloseFormTimer);
             fallbackTimer.Start();
         }
 
-        private void CloseFormTimer(object sender, EventArgs e)
-        {
-            this.Close();
-        }
+        private void CloseFormTimer(object sender, EventArgs e) { this.Close(); }
 
         private void CheckAudioStatus(object sender, EventArgs e)
         {
@@ -197,25 +176,21 @@ namespace FastWelcome
                 try
                 {
                     int playState = (int)wmp.GetType().InvokeMember("playState", BindingFlags.GetProperty, null, wmp, null);
-                    // 3 = Playing, 1 = Stopped
-                    if (playState == 3)
-                    {
-                        startedPlaying = true;
-                    }
+                    if (playState == 3) { if(!startedPlaying) { Program.Log("playState == 3 (Playing)"); } startedPlaying = true; }
                     else if (startedPlaying && playState == 1)
                     {
+                        Program.Log("playState == 1 (Stopped). Closing.");
                         pollTimer.Stop();
-                        Console.WriteLine("[FastWelcome] Audio finished. Closing UI.");
                         this.Close();
                     }
                 }
-                catch {}
+                catch (Exception ex) { Program.Log("CheckAudioStatus error: " + ex.Message); }
             }
         }
 
         private void OnFormClosed(object sender, FormClosedEventArgs e)
         {
-            Console.WriteLine("[FastWelcome] Form closed successfully.");
+            Program.Log("FormClosed event fired. Clean exit.");
             Environment.Exit(0);
         }
     }
